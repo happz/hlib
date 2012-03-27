@@ -1,0 +1,5 @@
+#!/bin/sh
+
+PACKAGES='events/ handlers/ templates/ ui/ log/ .'
+
+grep -r "$1" $PACKAGES | egrep \.py | egrep -v \.svn | egrep -v \~ | egrep -v \.pyc

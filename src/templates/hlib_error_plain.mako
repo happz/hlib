@@ -1,0 +1,38 @@
+<%!
+  import time
+  import hlib
+  import hruntime
+%>
+----- ** ----- ** -----
+Exception occured at ${error.file}:${error.line}
+  Stamp: ${time.strftime('%d/%m/%Y %H:%M:%S', hruntime.localtime)}
+  Message: ${error.message}
+  % if hruntime.user:
+  Request: ${hruntime.request.requested_line.encode('ascii', 'replace')} - ${':'.join(hruntime.request.ip)}
+  User: ${hruntime.user.name}
+  % else:
+  Request: <none>
+  User: <unknown>
+  % endif
+
+  Request headers:
+  % for (name, value) in hruntime.request.headers.iteritems():
+    ${name}: ${value.encode('ascii', 'replace')}
+  % endfor
+
+  Input data:
+    % for name, value in hruntime.request.params.iteritems():
+      ${name}: ${unicode(value).encode('ascii', 'replace')}
+    % endfor
+
+  Call stack:
+    <% i = 0 %>
+    % for entry in error.tb:
+      <%
+        i = i + 1
+        sl = len(str(i))
+      %>
+      ${i}. ${entry[0]}:${entry[1]} ${entry[2]}
+      ${' ' * (sl + 1)} ${entry[3]}
+    % endfor
+----- ** ----- ** -----
