@@ -1,3 +1,45 @@
 Simple and easy-to-use library for implementing application servers.
 
+Simple HTTP server
+  To be used behind reverse proxying master (such as nginx or lighttpd). Just basic
+  functions necessary for interacting with HTTP/1.1 clients. Multi-threaded, able
+  to serve on multiple ports for multiple applications. Cookie-based sessions included.
+
+Native database access
+  ZODB is used as main persistent storage (file and relational backends are supported).
+  It is also possible to access relational databases (just MySQL right now), though these
+  are not intended as persistent storage.
+
+Object-tree of handlers
+  Direct mapping of requested URLs to objects and their methods, starting from single root.
+  Method get arguments passed by user as HTTP input, and their return values are send back
+  to client as content of HTTP reply.
+
+JSON API
+  Support for low-cost methods for exchange of structured data with client.
+
+Events
+  Simple as title says, a lot of events can be defined and acted on their arrival.
+
+And some other simple features to ease my life :)
+  Input validation - see FormEncode for preview
+  Logging framework, for access and error logs, with few different targets (stderr, file, ...)
+  User authentication, based on sessions
+  HTTP output compression
+  Simple text formatting, as known from phpBB forums
+  Generic object cache
+  Localization, as easy to use as gettext
+  Easy-to-use internal statistic counters (with presentation)
+
+Includes simple HTTP webserver (to be used behind reverse proxy), user
+authentication, caching, events, input validation, 
+
 Documentation can be found at http://osadnici-test.happz.cz/doc/
+
+Built using:
+- Python (http://www.python.org/) for core functionality.
+- ZODB (http://www.zodb.org/) as main persistent storage.
+- Mako Templates (http://www.makotemplates.org) are used for generating HTML responses.
+- FormEncode (http://www.formencode.org/en/latest/index.html) as base for input validation.
+- jQuery (www.jquery.com) and CoffeeScript (http://jashkenas.github.com/coffee-script/) are used for client-side scripting.
+- Formee (http://formee.org) as CSS framework for HTML forms.
