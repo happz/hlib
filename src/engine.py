@@ -65,10 +65,6 @@ class Application(object):
       setattr(self, k, v)
 
   def get_handler(self, requested):
-    """
-    
-    """
-
     h = self.root
 
     for token in requested.split('?')[0].split('/')[1:]:
@@ -115,6 +111,7 @@ class Request(object):
     super(Request, self).__init__()
 
     self.server_handler	= server_handler
+    self.server		= self.server_handler.server
 
     self.input          = ''
 
@@ -139,7 +136,7 @@ class Request(object):
   is_tainted		= property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'tainted'))
   is_authenticated	= property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'authenticated') and hruntime.session.authenticated == True)
 
-  ips			= property(lambda self: [self.server_handler.client_address[0]] + ('X-Forwarded-For' in self.headers and [ip.strip() for ip in self.headers['X-Forwarded-For'].split(',')] or []))
+  ip			= property(lambda self: [self.server_handler.client_address[0]] + ('X-Forwarded-For' in self.headers and [ip.strip() for ip in self.headers['X-Forwarded-For'].split(',')] or []))
 
   def read_data(self, socket):
     while True:
@@ -268,7 +265,7 @@ class Response(object):
       self.headers['Set-Cookie'] = '%s=%s; expires=%s; Path=%s' % (cookie.name, urllib.quote(cookie.value), cookie.expires, cookie.path)
 
     if self.output:
-      if True:
+      if hruntime.request.server.config.compress == True:
         compressed = hlib.compress.compress(self.output)
 
         self.raw_output = self.output

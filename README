@@ -1,5 +1,7 @@
 Simple and easy-to-use library for implementing application servers.
 
+---- Features ----
+
 Simple HTTP server
   To be used behind reverse proxying master (such as nginx or lighttpd). Just basic
   functions necessary for interacting with HTTP/1.1 clients. Multi-threaded, able
@@ -30,9 +32,6 @@ And some other simple features to ease my life :)
   Generic object cache
   Localization, as easy to use as gettext
   Easy-to-use internal statistic counters (with presentation)
-
-Includes simple HTTP webserver (to be used behind reverse proxy), user
-authentication, caching, events, input validation, 
 
 Documentation can be found at http://osadnici-test.happz.cz/doc/
 

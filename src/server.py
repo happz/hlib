@@ -249,6 +249,7 @@ class Server(SocketServer.TCPServer):
     @param server:		Configuration of this server, as described in L{hlib.config.servers} documentation.
     """
 
+    self.config			= server
     self.server_thread		= None
     self.allow_reuse_address	= True
 
