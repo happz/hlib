@@ -213,7 +213,7 @@ class Request(object):
       for cookie in self.headers['Cookie'].split(';'):
         n, v = __parse_param(cookie)
 
-        self.cookies[n] = hlib.http.cookies.Cookie(n, value = v)
+        self.cookies[n] = hlib.http.cookies.Cookie(n, value = v, server = self.server)
 
     # Restore session if any
     if 'settlers_sid' in self.cookies:
@@ -259,10 +259,10 @@ class Response(object):
     if hruntime.session != None:
       hruntime.session.save()
 
-      self.cookies['settlers_id'] = hlib.http.cookies.Cookie('settlers_sid', value = hruntime.session.sid)
+      self.cookies['settlers_id'] = hlib.http.cookies.Cookie('settlers_sid', value = hruntime.session.sid, server = hruntime.request.server)
 
     for name, cookie in self.cookies.iteritems():
-      self.headers['Set-Cookie'] = '%s=%s; expires=%s; Path=%s' % (cookie.name, urllib.quote(cookie.value), cookie.expires, cookie.path)
+      self.headers['Set-Cookie'] = '%s=%s; Max-Age=%s; Path=%s' % (cookie.name, urllib.quote(cookie.value), cookie.max_age, cookie.path)
 
     if self.output:
       if hruntime.request.server.config.compress == True:
