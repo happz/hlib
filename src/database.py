@@ -66,14 +66,9 @@ class DBAddress(object):
 
     self.fields = line.split(':')
 
-  def __getattribute__(self, name):
-    if name == '_fields':
-      return super(DBAddress, self).__getattribute__(name)
-
+  def __getattr__(self, name):
     if name in self._fields.keys():
       return self.fields[self._fields[name]]
-
-    return super(DBAddress, self).__getattribute__(name)      
 
 class DB(object):
   def __init__(self, address):

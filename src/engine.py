@@ -265,7 +265,7 @@ class Response(object):
       self.headers['Set-Cookie'] = '%s=%s; Max-Age=%s; Path=%s' % (cookie.name, urllib.quote(cookie.value), cookie.max_age, cookie.path)
 
     if self.output:
-      if hruntime.request.server.config.compress == True:
+      if hasattr(hruntime.request.server.config, 'compress') and hruntime.request.server.config.compress == True:
         compressed = hlib.compress.compress(self.output)
 
         self.raw_output = self.output
@@ -352,7 +352,7 @@ def __on_thread_start(e):
 
   hruntime.__init_done		= True
 
-hlib.event.Hook('engine.ThreadStarted', 'init_hruntime', __on_thread_start)
+hlib.event.Hook('engine.ThreadStarted', 'hlib_generic', __on_thread_start)
 
 # pylint: disable-msg=W0613
 def __on_thread_finished(e):

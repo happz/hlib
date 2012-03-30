@@ -104,9 +104,9 @@ class RequestHandler(SocketServer.BaseRequestHandler):
         __fail(404)
         break
 
-      hlib.event.trigger('engine.RequestStarted', None)
-
       try:
+        hlib.event.trigger('engine.RequestStarted', None)
+
         if hlib.handlers.tag_fn_check(req.handler, 'api', False):
           res.output = hlib.api.run_api_handler()
         else:

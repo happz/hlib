@@ -22,11 +22,7 @@ class Server(DBObject):
 
     self.events		= hlib.database.IndexedMapping()
 
-  def __getattr__(self, name):
-    if name == 'online_users':
-      return hlib.http.session.storage.online_users()
-
-    raise AttributeError(name)
+  online_users		= property(lambda self: hlib.http.session.storage.online_users())
 
 class Event(DBObject):
   def __init__(self, stamp, hidden):
@@ -35,13 +31,6 @@ class Event(DBObject):
     self.id		= None
     self.stamp		= stamp
     self.hidden		= hidden
-
-class Cookie(DBObject):
-  def __init__(self, name):
-    DBObject.__init__(self)
-
-    self.name		= name
-    self.value		= None
 
 class DummyUser(object):
   def __init__(self, name):
@@ -63,20 +52,5 @@ class User(DBObject):
 
     self.events		= hlib.database.IndexedMapping()
 
-  def __getattr__(self, name):
-    if name == 'is_admin':
-      return self.admin == True
-
-    if name == 'is_online':
-      return self.name in hlib.http.session.storage.online_users
-
-    raise AttributeError(name)
-
-#  def __setattr__(self, name, value):
-#    print >> sys.stderr, 'user: tid = %s, user = %s - setting attr %s = "%s"' % (hruntime.tid, str(self), name, value)
-#
-#    super(User, self).__setattr__(name, value)
-
-  def create_cookie(self, name):
-    self.cookies[name] = Cookie(name)
-    return self.cookies[name]
+  is_admin		= property(lambda self: self.admin == True)
+  is_online		= property(lambda self: self.name in hlib.http.session.storage.online_users)
