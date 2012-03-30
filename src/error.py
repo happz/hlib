@@ -52,11 +52,11 @@ class Error(Exception):
     else:
       self.tb = traceback.extract_stack()[0:-1]
 
-  name			= property(lambda self: self.exc_info and self.exc_info[0].__name__ or '*Unknown*'
+  name			= property(lambda self: self.exc_info and self.exc_info[0].__name__ or '*Unknown*')
   message		= property(lambda self: self.msg.format(**self.params))
   file		 	= property(lambda self: self.tb[-1][0])
   line			= property(lambda self: self.tb[-1][1])
-  code			= property(lambda self: '%i. %s' % (self.line, open(self.file, 'r').readlines()[self.line])
+  code			= property(lambda self: '%i. %s' % (self.line, open(self.file, 'r').readlines()[self.line]))
   log_record		= property(lambda self: logging.makeLogRecord({'name': 'settlers', 'level': syslog.LOG_ERR, 'pathname': self.file, 'lineno': self.line, 'msg': self.msg, 'args': self.params, 'exc_info': self.exc_info, 'func': None}))
 
   def __str__(self):
