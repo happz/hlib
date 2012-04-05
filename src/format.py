@@ -1,27 +1,31 @@
 """
-Methods for formating text output
-
-@author:	                Milos Prchlik
-@contact:       	        U{happz@happz.cz}
-@license:               	DPL (U{http://www.php-suit.com/dpl})
+Methods for formating text output.
 """
 
-import hlib
+__author__              = 'Milos Prchlik'
+__copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
+__contact__             = 'happz@happz.cz'
+__license__             = 'http://www.php-suit.com/dpl'
 
-import bbcode
+try:
+  import bbcode
+  __do_tagize = bbcode.bb2xhtml
+
+except ImportError:
+  __do_tagize = lambda text: text
+
+import hlib
 
 def _do_tagize(text):
   return bbcode.bb2xhtml(text)
 
 # pylint: disable-msg=W0613
-def tagize(text, mid = None):
+def tagize(text):
   """
   Process tags in text.
 
-  @param text:			Text to be processed.
   @type text:			C{string}
-  @param mid:			If set, result can be stored in cache using C{mid} as key.
-  @type mid:			C{hashable}
+  @param text:			Text to be processed.
   """
 
-  return _do_tagize(text)
+  return __do_tagize(text)

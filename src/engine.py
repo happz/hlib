@@ -38,10 +38,8 @@ class Application(object):
   This class represents one of our applications. Binds together database access, logging channels and tree of handlers.
   """
 
-  def __init__(self, name, root, db, **kwargs):
+  def __init__(self, name, root, db, config):
     """
-    Other additional arguments can be passed as keyword arguments, all will be set as this object properties.
-
     @type name:			C{string}
     @param name:		Name of application. Any string at all.
     @type root:			L{hlib.handlers.GenericHandler}
@@ -55,14 +53,23 @@ class Application(object):
     self.name                   = name
     self.root                   = root
     self.db			= db
-    self.cache			= hlib.cache.Cache(self.name)
+    self.config			= config
+    self.cache			= hlib.cache.Cache(self.name, self)
 
     self.channels		= hlib.Config()
     self.channels.access	= []
     self.channels.error		= []
 
-    for k, v in kwargs.iteritems():
-      setattr(self, k, v)
+  @staticmethod
+  def default_config():
+    c = hlib.Config()
+
+    c.title			= None
+
+    c.cache			= hlib.Config()
+    c.cache.enabled		= True
+
+    return c
 
   def get_handler(self, requested):
     h = self.root

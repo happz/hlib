@@ -2,10 +2,11 @@ import pprint
 import threading
 
 class Cache(object):
-  def __init__(self, name):
+  def __init__(self, name, app):
     super(Cache, self).__init__()
 
     self.name		= name
+    self.app		= app
 
     self.lock		= threading.RLock()
     self.objects	= {}
@@ -29,12 +30,18 @@ class Cache(object):
     return self.objects[user.name]
 
   def get(self, user, key, default = None):
+    if not self.app.config.cache.enabled:
+      return default
+
     with self.lock:
       chain = self.__chain_init(user)
 
       return chain.get(key, default = default)
 
   def set(self, user, key, value):
+    if not self.app.config.cache.enabled:
+      return
+
     with self.lock:
       chain = self.__chain_init(user)
 
@@ -42,7 +49,8 @@ class Cache(object):
 
   def test_and_set(self, user, key, callback, *args, **kwargs):
     # pylint: disable-msg=W0101
-    return callback(*args, **kwargs)
+    if not self.app.config.cache.enabled:
+      return callback(*args, **kwargs)
 
     with self.lock:
       self.__chain_init(user)

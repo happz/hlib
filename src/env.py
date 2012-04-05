@@ -37,15 +37,21 @@ def init_env(config_file):
   db = hlib.database.DB(db_address)
   db.open()
 
-  server = hlib.Config()
-  server.host = config.get('server', 'host')
-  server.port = int(config.get('server', 'port'))
-  server.max_threads = 1
+  app_config                    = hlib.engine.Application.default_config()
+  app_config.title              = 'hlib - env'
+  app_config.cache.enabled      = False
 
-  server.app = hlib.engine.Application('settlers', hlib.handlers.root.Handler(), db, title = 'Hlib env')
-  server.app.channels.access = [stderr]
-  server.app.channels.error  = [stderr]
+  app = hlib.engine.Application('hlib', hlib.handlers.root.Handler(), db, app_config)
+  app.channels.access = [stderr]
+  app.channels.error  = [stderr]
 
-  server = hlib.server.Server(server, (server.host, server.port), hlib.server.RequestHandler)
+  server_config                 = hlib.server.Server.default_config()
+  server_config.host            = config.get('server', 'host')
+  server_config.port            = int(config.get('server', 'port'))
+  server_config.max_threads	= 1
+
+  server_config.app             = app
+
+  server = hlib.server.Server(server_config, (server_config.host, server_config.port), hlib.server.RequestHandler)
 
   hlib.event.trigger('engine.ThreadStarted', None, server = server)

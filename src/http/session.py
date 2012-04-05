@@ -16,7 +16,7 @@ import hruntime
 __all__ = []
 
 hlib.config.sessions = hlib.Config()
-hlib.config.sessions.storage = 'memory'
+hlib.config.sessions.storage = 'file'
 hlib.config.sessions.file = '/tmp/settlers-sessions.dat'
 hlib.config.sessions.time = 2 * 86400
 
@@ -90,14 +90,28 @@ class FileStorage(Storage):
 
     self.sessions = None
 
+  def __open_session_file(self, mode = 'r', repeated = False):
+    try:
+      return open(hlib.config.sessions.file, mode)
+    except IOError, e:
+      if repeated:
+        raise e
+
+      if hasattr(e, 'args') and len(e.args) >= 1 and e.args[0] == 2:
+        with open(hlib.config.sessions.file, 'w') as f:
+          f.write(cPickle.dumps({}))
+          f.close()
+
+        return self.__open_session_file(repeated = True)
+
   def load_sessions(self):
     # pylint: disable-msg=E1101
-    with open(hlib.config.sessions.file, 'r') as f:
+    with self.__open_session_file() as f:
       self.sessions = cPickle.loads(f.read())
 
   def save_sessions(self):
     # pylint: disable-msg=E1101
-    with open(hlib.config.sessions.file, 'w') as f:
+    with self.__open_session_file(mode = 'w') as f:
       f.write(cPickle.dumps(self.sessions))
 
   def __contains__(self, name):

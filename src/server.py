@@ -91,7 +91,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
       try:
         req.parse_data()
 
-      except Exception:
+      except Exception, e:
         __fail(400, exc = e)
         break
 
@@ -115,10 +115,10 @@ class RequestHandler(SocketServer.BaseRequestHandler):
         if res.output != None:
           res.output_length = len(res.output)
 
-      except hlib.http.NotFound, e:
+      except hlib.http.NotFound:
         __fail(404)
 
-      except hlib.http.UnknownMethod, e:
+      except hlib.http.UnknownMethod:
         __fail(405)
 
       except hlib.http.Redirect, e:
@@ -257,6 +257,19 @@ class Server(SocketServer.TCPServer):
 
     self.pool			= ThreadPool(self, limit = server.max_threads)
     self.app			= server.app
+
+  @staticmethod
+  def default_config():
+    c = hlib.Config()
+
+    c.host			= 'localhost'
+    c.port			= 8080
+    c.max_threads		= 10
+    c.compress			= True
+
+    c.app			= None
+
+    return c
 
   def process_request_thread(self, pool):
     """

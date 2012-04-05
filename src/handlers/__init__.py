@@ -86,7 +86,7 @@ def prepare_template_params(params = None):
   real_params['user']     = hruntime.user
   real_params['server']   = hruntime.server
   real_params['_']        = gettext
-  real_params['title']    = hruntime.app.title
+  real_params['title']    = hruntime.app.config.title
   real_params['basepath'] = hruntime.request.base
   
   real_params['_q']       = urllib.quote
