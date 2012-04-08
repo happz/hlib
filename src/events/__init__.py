@@ -6,6 +6,7 @@ System and game events
 @license:			DPL (U{http://www.php-suit.com/dpl})
 """
 
+import hlib.api
 import hlib.datalayer
 
 # pylint: disable-msg=F0401
@@ -23,3 +24,11 @@ class Event(hlib.datalayer.Event):
 
   def __init__(self, hidden = False):
     hlib.datalayer.Event.__init__(self, hruntime.time, hidden)
+
+  def to_api(self):
+    return {
+      'id':		self.id,
+      'stamp':		self.stamp,
+      'hidden':		self.hidden,
+      'ename':		ename(self.__class__)
+    }

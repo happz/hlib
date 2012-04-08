@@ -346,6 +346,7 @@ def __on_thread_start(e):
 
   hruntime.tid			= thread.get_ident()
   hruntime.db			= e.server.app.db
+  hruntime.root			= e.server.app.root
 
   dbconn, dbroot = hruntime.db.connect()
   hruntime.db.start_transaction()

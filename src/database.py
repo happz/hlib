@@ -126,6 +126,9 @@ class DBObject(persistent.Persistent):
   def __init__(self, *args, **kwargs):
     persistent.Persistent.__init__(self, *args, **kwargs)
 
+  def __getattr__(self, name):
+    raise AttributeError(name)
+
 class IndexedMapping(DBObject):
   def __init__(self, first_key = None, *args, **kwargs):
     DBObject.__init__(self, *args, **kwargs)

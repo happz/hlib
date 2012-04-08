@@ -1,9 +1,16 @@
+String.prototype.format = () ->
+  args = arguments;
+  return @replace /\{(\d+)\}/g, (m, n) -> return args[n]
+
 window.hlib =
   templates:	{
   }
 
   OPTS:		null
   INFO:		null
+
+  _g:		(s) ->
+    return s
 
   disable:	(fid) ->
     if not $('#' + fid).hasClass 'disabled'
@@ -172,7 +179,7 @@ class window.hlib.Ajax
     _ajax = @
 
     if not opts.hasOwnProperty 'async'
-      opts.async = true
+      opts.async = false
     if not opts.hasOwnProperty 'data'
       opts.data = {}
 

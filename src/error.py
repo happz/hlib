@@ -127,3 +127,6 @@ class TemporarilyDisabled(Error):
 
 class InvalidInputError(Error):
   pass
+
+class AccessDeniedError(Error):
+  pass

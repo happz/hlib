@@ -134,12 +134,15 @@ class Runtime(types.ModuleType):
     self.reset_locals()
     self.__init_done = False
 
-  localtime	= property(lambda self: time.localtime(self.time))
-  cache		= property(lambda self: self.app.cache)
-
   def __getattr__(self, name):
     if name in self.properties:
       return getattr(_locals, name)
+
+    if name == 'localtime':
+      return time.localtime(self.time)
+
+    if name == 'cache':
+      return self.app.cache
 
     # pylint: disable-msg=W0212
     if name == 'time':

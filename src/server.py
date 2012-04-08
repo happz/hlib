@@ -64,8 +64,8 @@ class RequestHandler(SocketServer.BaseRequestHandler):
       @param exc:		Exception that caused this function to be called. Or C{None} in case there was no exception that could be logged (standard errors like L{hlib.http.NotFound}, L{hlib.http.UnknownMethod}, etc.)
       """
       if exc:
-        if not isinstance(e, hlib.error.Error):
-          e = hlib.error.ErrorByException(e)
+        if not isinstance(exc, hlib.error.Error):
+          e = hlib.error.ErrorByException(exc)
 
         hlib.log.log_error(e)
 

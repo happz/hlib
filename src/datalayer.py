@@ -22,7 +22,11 @@ class Server(DBObject):
 
     self.events		= hlib.database.IndexedMapping()
 
-  online_users		= property(lambda self: hlib.http.session.storage.online_users())
+  def __getattr__(self, name):
+    if name == 'online_users':
+      return hlib.http.session.storage.online_users()
+
+    raise AttributeError(name)
 
 class Event(DBObject):
   def __init__(self, stamp, hidden):
@@ -52,5 +56,11 @@ class User(DBObject):
 
     self.events		= hlib.database.IndexedMapping()
 
-  is_admin		= property(lambda self: self.admin == True)
-  is_online		= property(lambda self: self.name in hlib.http.session.storage.online_users)
+  def __getattr__(self, name):
+    if name == 'is_admin':
+      return self.admin == True
+
+    if name == 'is_online':
+      return self.name in hlib.http.session.storage.online_users
+
+    raise AttributeError(name)

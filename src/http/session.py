@@ -124,20 +124,23 @@ class FileStorage(Storage):
   def __getitem__(self, name):
     with self.lock:
       if self.sessions == None:
-        self.sessions = self.load_sessions()
+        self.load_sessions()
 
       return self.sessions.get(name, None)
 
   def __setitem__(self, name, value):
     with self.lock:
       if self.sessions == None:
-        self.sessions = self.load_sessions()
+        self.load_sessions()
 
       self.sessions[name] = value
       self.save_sessions()
 
   def __delitem__(self, name):
     with self.lock:
+      if self.sessions == None:
+        self.load_sessions()
+
       if name in self.sessions:
         del self.sessions[name]
         self.save_sessions()
