@@ -1,8 +1,5 @@
 """
 Support for HTTP cookies.
-
-@type hlib.config.cookies.default_max_age:	C{int}
-@var hlib.config.cookies.default_max_age:	Default value (in seconds) for 'Max-Age' cookie attribute when not specified. Default is 1 week.
 """
 
 __author__              = 'Milos Prchlik'
@@ -15,8 +12,7 @@ import hlib
 # pylint: disable-msg=F0401
 import hruntime
 
-hlib.config.cookies = hlib.Config()
-hlib.config.cookies.default_max_age = 604800		# 1 week
+hlib.config['cookies.default_max_age'] = 		 604800		# 1 week
 
 class Cookie(object):
   """
@@ -40,7 +36,7 @@ class Cookie(object):
     self.server			= server
     self.name			= name
     self.value			= value and str(value) or ''
-    self.max_age		= max_age or (self.server and hasattr(self.server, 'cookie_max_age') and self.server.cookie_max_age or hlib.config.cookies.default_max_age)
+    self.max_age		= max_age or (self.server and hasattr(self.server, 'cookie_max_age') and self.server.cookie_max_age or hlib.config['cookies.default_max_age'])
     self.path			= path or '/'
 
   def set(self):

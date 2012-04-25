@@ -15,16 +15,12 @@ import mako.lookup
 import mako.template
 import os.path
 
-hlib.config.templates = hlib.Config()
-hlib.config.templates.template_dirs = [os.path.join(hlib.config.app_path, 'templates'), os.path.join(hlib.config.path, 'templates')]
-hlib.config.templates.tmp_dir       = os.path.join(hlib.config.app_path, 'templates', 'compiled')
-
 class Template(object):
   """
   Generic template class
   """
 
-  def __init__(self, name, encoding = 'utf-8', indent = False):
+  def __init__(self, name, app = None, encoding = 'utf-8', indent = False):
     """
     Instantiate with C{Template(name, encoding = 'utf-8', indent = True)}
 
@@ -38,13 +34,14 @@ class Template(object):
 
     super(Template, self).__init__()
 
-    self.name = name
-    self.encoding = encoding
-    self.encoding_errors = 'replace'
-    self.indent = indent
+    self.app			= app
+    self.name			= name
+    self.encoding		= encoding
+    self.encoding_errors	= 'replace'
+    self.indent			= indent
 
-    self.params = None
-    self.template = None
+    self.params			= None
+    self.template		= None
 
   # pylint: disable-msg=W0613
   def load(self, text = None):

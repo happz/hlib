@@ -37,7 +37,7 @@ def start_session(user = None, tainted = False):
                                 and its id is saved to session.
   """
 
-  hruntime.session.refresh_sid(hruntime.request)
+  hruntime.session.refresh_sid()
 
   hruntime.session.authenticated = True
   hruntime.session.name = user.name
@@ -67,7 +67,7 @@ def check_session(redirect_to_login = True):
 
   refresh_session()
 
-  hlib.http.session.storage.purge()
+  hruntime.app.sessions.purge()
 
 def logout(trigger_event = True):
   """

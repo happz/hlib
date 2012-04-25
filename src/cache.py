@@ -30,7 +30,7 @@ class Cache(object):
     return self.objects[user.name]
 
   def get(self, user, key, default = None):
-    if not self.app.config.cache.enabled:
+    if not self.app.config['cache.enabled']:
       return default
 
     with self.lock:
@@ -39,7 +39,7 @@ class Cache(object):
       return chain.get(key, default = default)
 
   def set(self, user, key, value):
-    if not self.app.config.cache.enabled:
+    if not self.app.config['cache.enabled']:
       return
 
     with self.lock:
@@ -49,7 +49,7 @@ class Cache(object):
 
   def test_and_set(self, user, key, callback, *args, **kwargs):
     # pylint: disable-msg=W0101
-    if not self.app.config.cache.enabled:
+    if not self.app.config['cache.enabled']:
       return callback(*args, **kwargs)
 
     with self.lock:

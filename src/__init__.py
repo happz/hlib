@@ -1,8 +1,5 @@
 """
 Basic classes for hlib functionality.
-
-@type hlib.config.path:			C{string}
-@var hlib.config.path:			Base path of this hlib instalation.
 """
 
 __author__		= 'Milos Prchlik'
@@ -50,16 +47,10 @@ class Config(object):
       else:
         print '%s.%s = "%s"' % (prefix, n, v)
 
-config = Config()
-"""
-Root of hlib configuration variables.
-
-@type:				hlib.Config
-"""
+config = {}
 
 # pylint: disable-msg=W0201
-config.path = '/data/hlib/src/'
-config.app_path = os.path.abspath(os.path.dirname(sys.argv[0]))
+PATH = os.path.dirname(__file__)
 
 def url(path = None):
   return 'http://' + hruntime.request.base + path

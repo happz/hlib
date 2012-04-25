@@ -9,16 +9,7 @@
 <%def name="quote(s)">${'"' + s + '"'}</%def>
 
 <%def name="script_file(file, type)">
-  <%
-    if type == 'js':
-      type = 'text/javascript'
-      ext = 'js'
-
-    elif type == 'coffee':
-      type = 'text/coffeescript'
-      ext = 'coffee'
-  %>
-  <script type="${type}" src="/static/script/${file}.${ext}"></script>
+  <script type="text/javascript" src="/static/script/${file}.js"></script>
 </%def>
 
 <%def name="stylesheet(file)">
@@ -49,17 +40,13 @@
 
   ${self.page_favicon()}
 
-  <style type="text/css">
-    ${self.page_style()}
-  </style>
-
-  <script type="text/coffeescript">
-    ${self.page_script()}
-  </script>
-
-  <script type="text/coffeescript">
-    $(document).ready ->
-      window.hlib.startup()
+  <script type="text/javascript">
+    $(document).ready(function() {
+      window.hlib.startup();
+      if (window.hlib.startup_page_specific) {
+        window.hlib.startup_page_specific();
+      }
+    });
   </script>
 </%def>
 

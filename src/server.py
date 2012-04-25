@@ -27,8 +27,6 @@ import hruntime
 
 __all__ = []
 
-hlib.config.servers = []
-
 class RequestHandler(SocketServer.BaseRequestHandler):
   """
   This class is instantiated for every new request accepted.
@@ -81,6 +79,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
       try:
         req.read_data(self.request)
 
+      # pylint: disable-msg=W0703
       except Exception, e:
         __fail(500, exc = e)
         break
@@ -91,6 +90,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
       try:
         req.parse_data()
 
+      # pylint: disable-msg=W0703
       except Exception, e:
         __fail(400, exc = e)
         break
@@ -153,6 +153,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
     try:
       self.request.sendall(output)
 
+    # pylint: disable-msg=
     except Exception, e:
       # Just log error, nothing else to do - it's too late
       __fail(0, exc = e)
@@ -245,8 +246,6 @@ class Server(SocketServer.TCPServer):
     Server does NOT start yet - L{start} method has to be called to really start server.
 
     @see:			http://docs.python.org/library/socketserver.html#asynchronous-mixins
-    @type server:		L{hlib.Config}
-    @param server:		Configuration of this server, as described in L{hlib.config.servers} documentation.
     """
 
     self.config			= server
@@ -255,19 +254,19 @@ class Server(SocketServer.TCPServer):
 
     SocketServer.TCPServer.__init__(self, *args, **kwargs)
 
-    self.pool			= ThreadPool(self, limit = server.max_threads)
-    self.app			= server.app
+    self.pool			= ThreadPool(self, limit = self.config.get('pool.max', 10))
+    self.app			= server['app']
 
   @staticmethod
   def default_config():
-    c = hlib.Config()
+    c = {}
 
-    c.host			= 'localhost'
-    c.port			= 8080
-    c.max_threads		= 10
-    c.compress			= True
+    c['host']			= 'localhost'
+    c['port']			= 8080
+    c['compress']		= True
+    c['pool.max']		= 10
 
-    c.app			= None
+    c['app']			= None
 
     return c
 

@@ -1,8 +1,5 @@
 """
 Functions for sending e-mails.
-
-@type hlib.config.mail.server:		C{string}
-@var hlib.config.mail.server:		Hostname (or IP address) of SMTP server we use for sending our e-mails. Default is C{localhost}.
 """
 
 __author__              = 'Milos Prchlik'
@@ -17,10 +14,7 @@ import email.Utils
 
 import hlib
 
-hlib.config.mail = hlib.Config()
-hlib.config.mail.server = 'localhost'
-
-def send_email(sender, recipient, subject, body):
+def send_email(app, sender, recipient, subject, body):
   if not sender.startswith('From: '):
     sender = 'From: ' + sender
 
@@ -52,6 +46,6 @@ def send_email(sender, recipient, subject, body):
   msg['To'] = email.Utils.formataddr((recipient_name, recipient_addr))
   msg['Subject'] = email.Header(unicode(subject), header_charset)
 
-  smtp = smtplib.SMTP(hlib.config.mail.server)
+  smtp = smtplib.SMTP(app.config['mail.server'])
   smtp.sendmail(sender, recipient, msg.as_string())
   smtp.quit()

@@ -4,6 +4,24 @@ String.prototype.format = () ->
 
 window.hlib =
   templates:	{
+    info_dialog:        {
+      error:        '
+        <div class="formee-msg-error">
+          <label>{{msg}}</label>
+          <div class="right"><input type="button" value="Ok" /></div>
+        </div>'
+      working:      '
+        <div class="formee-msg-info">
+          <img src="/static/images/spinner.gif" alt="" class="ajax_spinner" />
+          <label>Your request is being processed by our hamsters.</label>
+          If it takes too long, poke our admins <a href="irc://ellen.czn.cz/osadnici">here</a>.
+        </div>'
+      success:      '
+        <div class="formee-msg-success">
+          <label>{{msg}}</label>
+          <div class="right"><input type="button" value="Ok" /></div>
+        </div>'
+    }
   }
 
   OPTS:		null
@@ -265,7 +283,7 @@ class window.hlib.Form
             window.hlib.form_default_handlers[reply_handler] response, _form
             return
 
-        window.hlib.INFO.error response.form_info
+        window.hlib.INFO.error response.message
 
       beforeSerialize:		(f, o) ->
         if opts.submit_empty != true

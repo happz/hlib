@@ -1,5 +1,7 @@
 import types
 
+import hruntime
+
 class Channel(object):
   def do_log_message(self, msg):
     pass
@@ -25,5 +27,5 @@ class StreamChannel(Channel):
   def log_error(self, error):
     import hlib.ui.templates.Mako
 
-    t = hlib.ui.templates.Mako.Template('hlib_error_plain.mako', indent = False).load()
+    t = hlib.ui.templates.Mako.Template('hlib_error_plain.mako', indent = False, app = hruntime.app).load()
     self.do_log_message(t.render(params = {'error': error}).strip())

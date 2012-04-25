@@ -15,20 +15,15 @@ import hruntime
 
 __all__ = []
 
-hlib.config.sessions = hlib.Config()
-hlib.config.sessions.storage = 'file'
-hlib.config.sessions.file = '/tmp/settlers-sessions.dat'
-hlib.config.sessions.time = 2 * 86400
-
-storage = None
-
 def gen_rand_string(l):
   chars = string.letters + string.digits
   return reduce(lambda s, i: s + random.choice(chars), range(l), '')
 
 class Storage(UserDict.UserDict):
-  def __init__(self, *args, **kwargs):
+  def __init__(self, app, *args, **kwargs):
     UserDict.UserDict.__init__(self, *args, **kwargs)
+
+    self.app = app
 
     self.lock = threading.RLock()
 
@@ -55,18 +50,19 @@ class Storage(UserDict.UserDict):
 
       for session in self.sessions.itervalues():
         # pylint: disable-msg=E1101
-        if hruntime.time - session.time > hlib.config.sessions.time:
+        if hruntime.time - session.time > self.app.config['sessions.time']:
           rm.append(session)
 
       for session in rm:
         session.destroy()
 
+  def load(self, sid):
+    return self[sid]
+
+  def exists(self, sid):
+    return sid in self
+
 class MemoryStorage(Storage):
-  def __init__(self):
-    Storage.__init__(self).__init__()
-
-    self.sessions = {}
-
   def __contains__(self, name):
     with self.lock:
       return name in self.sessions
@@ -85,20 +81,21 @@ class MemoryStorage(Storage):
         del self.sessions[name]
 
 class FileStorage(Storage):
-  def __init__(self):
-    Storage.__init__(self)
+  def __init__(self, storage_file, *args, **kwargs):
+    Storage.__init__(self, *args, **kwargs)
 
+    self.storage_file = storage_file
     self.sessions = None
 
   def __open_session_file(self, mode = 'r', repeated = False):
     try:
-      return open(hlib.config.sessions.file, mode)
+      return open(self.storage_file, mode)
     except IOError, e:
       if repeated:
         raise e
 
       if hasattr(e, 'args') and len(e.args) >= 1 and e.args[0] == 2:
-        with open(hlib.config.sessions.file, 'w') as f:
+        with open(self.storage_file, 'w') as f:
           f.write(cPickle.dumps({}))
           f.close()
 
@@ -145,21 +142,16 @@ class FileStorage(Storage):
         del self.sessions[name]
         self.save_sessions()
 
-storage = None
-storages = {
-  'memory':	MemoryStorage,
-  'file':	FileStorage
-}
-
-def gen_sid(req):
+def gen_sid():
   # hashlib.md5 exists, no matter what pylint says...
   # pylint: disable-msg=E1101
-  return hashlib.md5('%s-%s-%s' % (':'.join(req.ip), hruntime.time, gen_rand_string(10))).hexdigest()
+  return hashlib.md5('%s-%s-%s' % (':'.join(hruntime.request.ip), hruntime.time, gen_rand_string(10))).hexdigest()
 
 class Session(object):
-  def __init__(self, sid, time, ip):
+  def __init__(self, storage, sid, time, ip):
     super(Session, self).__init__()
 
+    self.storage	= storage
     self.sid		= sid
     self.time		= time
     self.ip		= ':'.join(ip)
@@ -167,41 +159,34 @@ class Session(object):
   def __str__(self):
     return '%s - %s - %s (%s)' % (self.sid, self.time, self.ip, hruntime.time - self.time)
 
-  @staticmethod
-  def create(req):
-    return hlib.http.session.Session(gen_sid(req), hruntime.time, req.ip)
+  def __getstate__(self):
+    d = self.__dict__.copy()
+    del d['storage']
+    return d
 
-  def check(self, req):
-    if self.ip != ':'.join(req.ip):
+  def __setstate__(self, d):
+    self.__dict__ = d
+    self.storage = hruntime.app.sessions
+
+  @staticmethod
+  def create():
+    return hlib.http.session.Session(hruntime.app.sessions, gen_sid(), hruntime.time, hruntime.request.ip)
+
+  def check(self):
+    if self.ip != ':'.join(hruntime.request.ip):
       return False
 
     self.time = hruntime.time
     return True
 
-  def refresh_sid(self, req):
-    new_sid = gen_sid(req)
+  def refresh_sid(self):
+    new_sid = gen_sid()
 
-    del storage[self.sid]
+    del self.storage[self.sid]
     self.sid = new_sid
 
   def save(self):
-    storage[self.sid] = self
-
-  @staticmethod
-  def load(sid):
-    return storage[sid]
-
-  @staticmethod
-  def exists(sid):
-    return sid in storage
+    self.storage[self.sid] = self
 
   def destroy(self):
-    del storage[self.sid]
-
-# pylint: disable-msg=W0613
-def __on_engine_started(e):
-  # pylint: disable-msg=E1101
-  hlib.http.session.storage = storages[hlib.config.sessions.storage]()
-
-import hlib.event
-hlib.event.Hook('engine.Started', 'session_storage', __on_engine_started, post = False)
+    del self.storage[self.sid]

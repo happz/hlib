@@ -10,6 +10,7 @@ __contact__             = 'happz@happz.cz'
 __license__             = 'http://www.php-suit.com/dpl'
 
 import hashlib
+import os.path
 import pprint
 import sys
 import thread
@@ -25,7 +26,6 @@ import hlib.error
 import hlib.event
 import hlib.http
 import hlib.http.cookies
-import hlib.http.session
 import hlib.i18n
 
 import hlib.server
@@ -60,14 +60,22 @@ class Application(object):
     self.channels.access	= []
     self.channels.error		= []
 
+    self.sessions		= None
+
   @staticmethod
-  def default_config():
-    c = hlib.Config()
+  def default_config(app_path):
+    c = {}
 
-    c.title			= None
+    c['dir']			= app_path
+    c['title']			= None
+    c['cache.enabled']		= None
 
-    c.cache			= hlib.Config()
-    c.cache.enabled		= True
+    c['templates.dirs']		= [os.path.join(app_path, 'src', 'templates'), os.path.join(hlib.PATH, 'templates')]
+    c['templates.tmp_dir']	= os.path.join(app_path, 'compiled')
+
+    c['pages']			= os.path.join(app_path, 'pages')
+
+    c['mail.server']		= 'localhost'
 
     return c
 
@@ -226,16 +234,16 @@ class Request(object):
     if 'settlers_sid' in self.cookies:
       cookie = self.cookies['settlers_sid']
 
-      if hlib.http.session.Session.exists(cookie.value):
-        session = hlib.http.session.Session.load(cookie.value)
+      if hruntime.app.sessions.exists(cookie.value):
+        session = hruntime.app.sessions.load(cookie.value)
 
       else:
-        session = hlib.http.session.Session.create(self)
+        session = hlib.http.session.Session.create()
 
     else:
-      session = hlib.http.session.Session.create(self)
+      session = hlib.http.session.Session.create()
 
-    if session.check(hruntime.request):
+    if session.check():
       hruntime.session = session
     else:
       session.destroy()
@@ -312,7 +320,7 @@ class Engine(object):
     self.servers = []
 
     for server in servers:
-      server = hlib.server.Server(server, (server.host, server.port), hlib.server.RequestHandler)
+      server = hlib.server.Server(server, (server['host'], server['port']), hlib.server.RequestHandler)
       self.servers.append(server)
 
   def start(self):

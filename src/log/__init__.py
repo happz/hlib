@@ -9,9 +9,7 @@ import hlib
 # pylint: disable-msg=F0401
 import hruntime
 
-hlib.config.log = hlib.Config()
-hlib.config.log.channels = hlib.Config()
-hlib.config.log.channels.error = None
+hlib.config['log.channels.error'] = None
 
 def make_record(message, params = None, level = None):
   params = {

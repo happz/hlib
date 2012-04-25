@@ -24,7 +24,7 @@ class Server(DBObject):
 
   def __getattr__(self, name):
     if name == 'online_users':
-      return hlib.http.session.storage.online_users()
+      return hruntime.app.sessions.online_users
 
     raise AttributeError(name)
 
@@ -61,6 +61,6 @@ class User(DBObject):
       return self.admin == True
 
     if name == 'is_online':
-      return self.name in hlib.http.session.storage.online_users
+      return self.name in hruntime.app.sessions.online_users
 
     raise AttributeError(name)

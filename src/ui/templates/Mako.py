@@ -22,21 +22,11 @@ class Template(hlib.ui.templates.Template):
   Based on Mako template library U{http://www.makotemplates.org/}
   """
 
-  def __init__(self, name, encoding = 'utf-8', indent = False):
-    """
-    Instantiate with C{Template(name, encoding = 'utf-8', indent = True)}
-
-    @param name:                Name of template, filename, extension included.
-    @type name:                 C{string}
-    @param encoding:            Output encoding. Default is C{utf-8}.
-    @type encoding:             C{string}
-    @param indent:              Whether to output indented and clean output. Default C{True}.
-    @type indent:               C{bool}
-    """
-    super(Template, self).__init__(name, encoding = encoding, indent = indent)
+  def __init__(self, *args, **kwargs):
+    super(Template, self).__init__(*args, **kwargs)
 
     # pylint: disable-msg=E1101
-    self.loader = mako.lookup.TemplateLookup(directories = hlib.config.templates.template_dirs, module_directory = hlib.config.templates.tmp_dir, output_encoding = self.encoding, encoding_errors = self.encoding_errors, filesystem_checks = True, input_encoding = 'utf-8')
+    self.loader = mako.lookup.TemplateLookup(directories = self.app.config['templates.dirs'], module_directory = self.app.config['templates.tmp_dir'], output_encoding = self.encoding, encoding_errors = self.encoding_errors, filesystem_checks = True, input_encoding = 'utf-8')
 
   def load(self, text = None):
     if text == None:

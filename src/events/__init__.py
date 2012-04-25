@@ -6,6 +6,8 @@ System and game events
 @license:			DPL (U{http://www.php-suit.com/dpl})
 """
 
+# pylint: disable-msg=R0401
+
 import hlib.api
 import hlib.datalayer
 

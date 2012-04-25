@@ -69,13 +69,15 @@ def run_api_handler():
     return ApiReply(e.reply_status, message = e.message, orig_fields = True, invalid_field = e.invalid_field).dump()
 
 class ApiJSON(object):
-  def __init__(self, fields):
+  def __init__(self, fields, status = 200):
     super(ApiJSON, self).__init__()
 
     # pylint: disable-msg=C0103
-    self.API_FIELDS = []
+    self.API_FIELDS = ['status']
 
     self.update(fields)
+
+    self.status = status
 
   def update(self, fields):
     self.API_FIELDS += fields
@@ -118,9 +120,7 @@ class ApiReply(ApiJSON):
                      invalid_field    = None,
                      updated_fields   = None,
                      **kwargs):
-    super(ApiReply, self).__init__(['status'])
-
-    assert status != None, 'ApiReply status must not be unknown'
+    super(ApiReply, self).__init__()
 
     self.status         = status
 

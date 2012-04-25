@@ -53,6 +53,7 @@ class Error(Exception):
       self.tb = traceback.extract_stack()[0:-1]
 
   name			= property(lambda self: self.exc_info and self.exc_info[0].__name__ or '*Unknown*')
+  # pylint: disable-msg=W0703
   message		= property(lambda self: self.msg.format(**self.params))
   file		 	= property(lambda self: self.tb[-1][0])
   line			= property(lambda self: self.tb[-1][1])
