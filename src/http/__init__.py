@@ -37,6 +37,8 @@ HTTP_CODES = {
   412:          'Precondition Failed',
   413:          'Request Entity Too Large',
   414:          'Request-URI Too Long',
+  # 5xx - Server error
+  500:		'Internal Server Error'
 }
 
 class HTTPError(hlib.error.Error):

@@ -62,8 +62,15 @@ def validate(schema = None, params = None, update_request = True):
     params = schema.to_python(params)
 
   except formencode.Invalid, e:
-    field_name, field_error = e.error_dict.items()[0]
-    raise hlib.error.InvalidInputError(reply_status = 400, msg = field_error.msg, invalid_field = field_name)
+    if e.error_dict:
+      field_name, field_error = e.error_dict.items()[0]
+      msg = field_error.msg
+
+    else:
+      msg = e.msg
+      field_name = None
+
+    raise hlib.error.InvalidInputError(reply_status = 400, msg = msg, invalid_field = field_name)
 
   if update_request == True:
     hruntime.request.params.update(params)

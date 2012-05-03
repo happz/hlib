@@ -99,16 +99,21 @@
   % endif
 </%def>
 
-<%def name="w_form_text(name, label = None, rows = 7, cols = 90, default = None)">
-  <div class="grid-12-12">
-    % if label != None:
-      <label>${_(label + ':')}</label>
-    % endif
-    <%
-      default = default or ''
-    %>
-    <textarea name="text" rows="${rows}" cols="${cols}">${default}</textarea>
-  </div>
+<%def name="w_form_text(name, label = None, rows = 7, cols = 90, default = None, struct = True)">
+  % if struct:
+    <div class="grid-12-12">
+  % endif
+
+  % if label != None:
+    ${w_helper_label(label, required = False, append_colon = False)}
+  % endif
+  <%
+    default = default or ''
+  %>
+  <textarea name="${name}" id="${hruntime.ui_form + '_' + name}" rows="${rows}" cols="${cols}">${default}</textarea>
+  % if struct:
+    </div>
+  % endif
 </%def>
 
 <%def name="w_form_end()">

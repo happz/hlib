@@ -24,7 +24,7 @@ def refresh_session():
   hruntime.response.headers['Cache-Control'] = 'must-revalidate, no-cache, no-store'
 
   hruntime.user = hruntime.dbroot.users[hruntime.session.name]
-  hruntime.localization = hruntime.dbroot.localization.languages['cz']
+  hruntime.i18n = hruntime.dbroot.localization.languages['cz']
 
 def start_session(user = None, tainted = False):
   """

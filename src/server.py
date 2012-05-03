@@ -239,7 +239,7 @@ class Server(SocketServer.TCPServer):
   This class represents one HTTP server.
   """
 
-  def __init__(self, server, *args, **kwargs):
+  def __init__(self, config, *args, **kwargs):
     """
     Instantiate Server object. Setup server properties, prepare sockets, etc... Pass C{args} and C{kwargs} to parenting class, these include server' bind address and port, and request handler class.
 
@@ -248,14 +248,14 @@ class Server(SocketServer.TCPServer):
     @see:			http://docs.python.org/library/socketserver.html#asynchronous-mixins
     """
 
-    self.config			= server
+    self.config			= config
     self.server_thread		= None
     self.allow_reuse_address	= True
 
     SocketServer.TCPServer.__init__(self, *args, **kwargs)
 
     self.pool			= ThreadPool(self, limit = self.config.get('pool.max', 10))
-    self.app			= server['app']
+    self.app			= config['app']
 
   @staticmethod
   def default_config():

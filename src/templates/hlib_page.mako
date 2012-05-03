@@ -42,10 +42,9 @@
 
   <script type="text/javascript">
     $(document).ready(function() {
-      window.hlib.startup();
-      if (window.hlib.startup_page_specific) {
-        window.hlib.startup_page_specific();
-      }
+      $(window).trigger('hlib_prestartup');
+      $(window).trigger('hlib_startup');
+      $(window).trigger('hlib_poststartup');
     });
   </script>
 </%def>

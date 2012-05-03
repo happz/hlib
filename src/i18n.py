@@ -6,12 +6,57 @@ Localization methods
 @license:               DPL (U{http://www.php-suit.com/dpl})
 """
 
-import traceback
+import threading
 
+import hlib
 import hlib.database
 
 # pylint: disable-msg=F0401
 import hruntime
+
+hlib.config['i18n.token_coverage'] = True
+
+class TokenCoverage(object):
+  def __init__(self):
+    super(TokenCoverage, self).__init__()
+
+    self.lock = threading.RLock()
+
+    self.hits		= {}
+    self.misses		= {}
+
+  def hit(self, name):
+    with self.lock:
+      self.hits[name] = True
+
+  def miss(self, name):
+    with self.lock:
+      self.misses[name] = True
+
+  def added(self, name):
+    with self.lock:
+      if name in self.misses:
+        del self.misses[name]
+
+  def removed(self, name):
+    with self.lock:
+      if name in self.hits:
+        del self.hits[name]
+
+  def coverage(self, lang):
+    unused = {}
+
+    with self.lock:
+      for key in lang.tokens.iterkeys():
+        if key in self.hits:
+          continue
+
+        unused[key] = True
+
+    return (self.hits.copy(), self.misses.copy(), unused)
+
+COVERAGE = {
+}
 
 class Language(hlib.database.DBObject):
   def __init__(self, name):
@@ -20,27 +65,46 @@ class Language(hlib.database.DBObject):
     self.name		= name
     self.tokens		= hlib.database.StringMapping()
 
-    self.hits		= {}
-    self.misses		= {}
+    self.coverage	= None
 
-  def get_unused(self):
-    unused = {}
+  def __getstate__(self):
+    d = self.__dict__.copy()
+    del d['coverage']
+    return d
 
-    for key in self.tokens.iterkeys():
-      if key in self.hits:
-        continue
+  def __setstate__(self, d):
+    self.__dict__ = d
 
-      unused[key] = True
+    if hlib.config['i18n.token_coverage'] == True:
+      if d['name'] not in COVERAGE:
+        COVERAGE[d['name']] = TokenCoverage()
 
-    return unused
+      self.coverage = COVERAGE[d['name']]
 
-  def gettext(self, name):
+  def __getitem__(self, name):
     if name in self.tokens:
-      self.hits[name] = True
+      if self.coverage:
+        self.coverage.hit(name)
+
       return self.tokens[name]
 
-    self.misses[name] = True
+    if self.coverage:
+      self.coverage.miss(name)
+
     return name
+
+  def __setitem__(self, name, value):
+    self.tokens[name] = value
+
+    if self.coverage:
+      self.coverage.added(name)
+
+  def __delitem__(self, name):
+    if name in self.tokens:
+      del self.tokens[name]
+
+    if self.coverage:
+      self.coverage.removed(name)
 
 class Localization(hlib.database.DBObject):
   """
@@ -72,4 +136,4 @@ def gettext(token, **kwargs):
   @rtype:			C{string}
   """
 
-  return hruntime.localization.gettext(token) % kwargs
+  return hruntime.i18n[token] % kwargs

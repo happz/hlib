@@ -60,6 +60,13 @@ class Cache(object):
 
       return self.objects[user.name][key]
 
+  def remove(self, user, key):
+    with self.lock:
+      self.__chain_init(user)
+
+      if key in self.objects[user.name]:
+        del self.objects[user.name][key]
+
   def to_stats(self):
     ret = []
 

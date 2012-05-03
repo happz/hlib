@@ -314,13 +314,13 @@ class Engine(object):
   Right now there is no need to have more than 1 engine in application. Maybe some day...
   """
 
-  def __init__(self, servers):
+  def __init__(self, server_configs):
     super(Engine, self).__init__()
 
     self.servers = []
 
-    for server in servers:
-      server = hlib.server.Server(server, (server['host'], server['port']), hlib.server.RequestHandler)
+    for sc in server_configs:
+      server = hlib.server.Server(sc, (sc['host'], sc['port']), hlib.server.RequestHandler)
       self.servers.append(server)
 
   def start(self):
@@ -475,10 +475,5 @@ def __on_engine_halted(e):
   import hlib.stats	# Don't import as global, => circular imports :'(
   stats_copy = hlib.stats.snapshot(hlib.stats.stats)
   pprint.pprint(stats_copy)
-
-#  for lang in hruntime.dbroot.localization.languages.itervalues():
-#    print lang.hits
-#    print lang.misses
-#    print lang.get_unused()
 
 hlib.event.Hook('engine.Halted', 'hlib_generic', __on_engine_halted)

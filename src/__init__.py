@@ -158,7 +158,7 @@ class Runtime(types.ModuleType):
 
     types.ModuleType.__setattr__(self, name, value)
 
-sys.modules['hruntime'] = Runtime('__init_done', 'tid', 'stats', 'user', 'db', 'dbconn', 'dbroot', 'root', 'server', 'dont_commit', 'ui_form', 'app', 'request', 'response', 'session', 'localization')
+sys.modules['hruntime'] = Runtime('__init_done', 'tid', 'stats', 'user', 'db', 'dbconn', 'dbroot', 'root', 'server', 'dont_commit', 'ui_form', 'app', 'request', 'response', 'session', 'i18n')
 
 # pylint: disable-msg=F0401
 import hruntime

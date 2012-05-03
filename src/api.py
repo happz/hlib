@@ -120,7 +120,7 @@ class ApiReply(ApiJSON):
                      invalid_field    = None,
                      updated_fields   = None,
                      **kwargs):
-    super(ApiReply, self).__init__()
+    super(ApiReply, self).__init__([])
 
     self.status         = status
 
