@@ -8,7 +8,6 @@ System and game events
 
 # pylint: disable-msg=R0401
 
-import hlib.api
 import hlib.datalayer
 
 # pylint: disable-msg=F0401

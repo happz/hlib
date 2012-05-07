@@ -195,10 +195,17 @@ class window.hlib.Form
     success: (msg) ->
       this._show msg, 'formee-msg-success'
 
+  clear:		() ->
+    $('#' + @opts.fid + '_' + name).val '' for name in @opts.clear_fields
+
   constructor: (opts) ->
+    @opts = opts
+
     @fid = '#' + opts.fid + '_form'
-    @base_fid = opts.fid
     @info = new FormInfo(@)
+
+    if not opts.hasOwnProperty 'clear_fields'
+      opts.clear_fields = []
 
     if not opts.hasOwnProperty 'submit_empty'
       opts.submit_empty = false
@@ -210,24 +217,19 @@ class window.hlib.Form
       success:	(response) ->
         window.hlib.INFO._hide()
 
-        if not opts.hasOwnProperty('dont_clean') or opts.dont_clean != true
-          $(_form.fid).clearForm()
+        _form.clear()
 
-        reply_handler = 's' + response.status
+        if response.status != 200 and opts.hasOwnProperty('refill') and opts.refill == true and response.form_info.hasOwnProperty('orig_fields')
+          $(_form.field_id key).val value for own key, value of response.form_info.orig_fields
 
-        if response.status != 200 and opts.hasOwnProperty('refill') and opts.refill and response.form_info.hasOwnProperty('orig_fields')
-          $(_form.fid + '_' + key).val(value) for own key, value of response.form_info.orig_fields
+        handler_name = 's' + response.status
 
-        if opts.hasOwnProperty('handlers') and opts.handlers.hasOwnProperty(reply_handler)
-          opts.handlers[reply_handler] response, _form
+        h = window.hlib.get_handler opts, handler_name, window.hlib.form_default_handlers
+        if h
+          h response, _form
           return
 
-        else
-          if window.hlib.form_default_handlers.hasOwnProperty reply_handler
-            window.hlib.form_default_handlers[reply_handler] response, _form
-            return
-
-        window.hlib.INFO.error response.message
+        window.hlib.INFO.error 'No handler for response status ' + response.status
 
       beforeSerialize:		(f, o) ->
         if opts.submit_empty != true
@@ -236,33 +238,27 @@ class window.hlib.Form
         return true
 
       beforeSubmit:             (a, f, o) ->
-        if opts.submit_empty != true
-          f.find(':input[value=""]').attr 'disabled', ''
+        f.find(':input[value=""]').removeAttr 'disabled'
 
         window.hlib.INFO.working()
         return true
 
-    if not opts.hasOwnProperty('dont_clean') or opts.dont_clean != true
-      $(@fid).clearForm()
+    @clear()
 
     if opts.hasOwnProperty 'focus'
-      $('#' + @base_fid + '_' + opts.focus).focus()
+      $(@field_id opts.focus).focus()
 
   field_id:		(name) ->
-    '#' + @base_fid + '_' + name
+    '#' + @opts.fid + '_' + name
 
   invalid_field:	(response) ->
     if not response.form_info.hasOwnProperty 'invalid_field'
       return null
 
-    new FormField @.field_id response.form_info.invalid_field
+    new FormField @field_id response.form_info.invalid_field
 
   update_fields:	(fields) ->
-    _form = @
-    __update_field = (f, v) ->
-      $(_form.field_id f).val v
-
-    __update_field f, v for f, v of fields
+    $(@field_id f).val v for f, v of fields
 
 #
 # Methods
@@ -355,6 +351,18 @@ window.hlib.setTitle = (msg) ->
 
 window.hlib.render = (tmpl, data) ->
   Mustache.to_html(tmpl, data)
+
+window.hlib.get_handler = (table_parent, handler_name, defaults) ->
+  if table_parent.hasOwnProperty 'handlers'
+    table = table_parent.handlers
+
+    if table.hasOwnProperty handler_name
+      return table[handler_name]
+
+  if defaults.hasOwnProperty handler_name
+    return defaults[handler_name]
+
+  return false
 
 window.hlib.form_default_handlers =
   # Everything is all right
