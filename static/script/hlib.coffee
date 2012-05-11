@@ -396,6 +396,10 @@ window.hlib.form_default_handlers =
     window.hlib.INFO.error response.message, () ->
       field.unmark_error()
 
+  # Internal server error
+  s500:		(response, form) ->
+    window.hlib.INFO.error response.message
+
 window.hlib.setup_common = (opts) ->
   window.hlib.OPTS = opts
   window.hlib.INFO = new window.hlib.Info
