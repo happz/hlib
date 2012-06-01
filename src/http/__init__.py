@@ -41,7 +41,7 @@ HTTP_CODES = {
   500:		'Internal Server Error'
 }
 
-class HTTPError(hlib.error.Error):
+class HTTPError(hlib.error.BaseError):
   def __init__(self, *args, **kwargs):
     super(HTTPError, self).__init__(*args, **kwargs)
 

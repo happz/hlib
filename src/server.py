@@ -16,6 +16,7 @@ import urllib
 import UserDict
 
 import hlib
+import hlib.api
 import hlib.engine
 import hlib.error
 import hlib.event
@@ -26,6 +27,12 @@ import hlib.http
 import hruntime
 
 __all__ = []
+
+class Redirect(hlib.api.ApiJSON):
+  def __init__(self, url):
+    super(Redirect, self).__init__(['url'])
+
+    self.url = url
 
 class RequestHandler(SocketServer.BaseRequestHandler):
   """
@@ -62,9 +69,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
       @param exc:		Exception that caused this function to be called. Or C{None} in case there was no exception that could be logged (standard errors like L{hlib.http.NotFound}, L{hlib.http.UnknownMethod}, etc.)
       """
       if exc:
-        if not isinstance(exc, hlib.error.Error):
-          e = hlib.error.ErrorByException(exc)
-
+        e = hlib.error.error_from_exception(exc)
         hlib.log.log_error(e)
 
       res.status = status
@@ -104,16 +109,15 @@ class RequestHandler(SocketServer.BaseRequestHandler):
         __fail(404)
         break
 
+      api_mode = hlib.handlers.tag_fn_check(req.handler, 'api', False)
+
       try:
         hlib.event.trigger('engine.RequestStarted', None)
 
-        if hlib.handlers.tag_fn_check(req.handler, 'api', False):
+        if api_mode:
           res.output = hlib.api.run_api_handler()
         else:
           res.output = hlib.handlers.run_page_handler()
-
-        if res.output != None:
-          res.output_length = len(res.output)
 
       except hlib.http.NotFound:
         __fail(404)
@@ -122,8 +126,6 @@ class RequestHandler(SocketServer.BaseRequestHandler):
         __fail(405)
 
       except hlib.http.Redirect, e:
-        __fail(303)
-
         if req.base:
           url = 'http://' + req.base
         else:
@@ -131,13 +133,22 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 
         url += e.location
 
-        res.headers['Location'] = url
+        if api_mode:
+          reply = hlib.api.Reply(303, redirect = Redirect(url))
+          reply.status = 303
 
-        if 'Content-Type' in res.headers:
-          del res.headers['Content-Type']
+          res.status = 200
+          res.output = reply.dump()
 
-      except hlib.error.Error, e:
-        
+        else:
+          __fail(303)
+
+          res.headers['Location'] = url
+
+          if 'Content-Type' in res.headers:
+            del res.headers['Content-Type']
+
+      except hlib.error.BaseError, e:
         hlib.log.log_error(e)
 
         res.status = 500

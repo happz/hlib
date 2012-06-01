@@ -81,6 +81,13 @@ class window.hlib.Ajax
       url:		opts.url
       async:		opts.async
       data:		opts.data
+      cache:		false
+      timeout:		10000
+
+      statusCode:
+        500:		() ->
+          console.log 'error called'
+          window.hlib.INFO.error 'Server unavailable'
 
       beforeSend:	() ->
         window.hlib.INFO.working()
@@ -88,13 +95,15 @@ class window.hlib.Ajax
       success:		(response) ->
         handler_name = 'h' + response.status
 
-        if not opts.handlers.hasOwnProperty handler_name
-          window.hlib.INFO.error 'Unknown success handler ' + handler_name
+        h = window.hlib.get_handler opts, handler_name, window.hlib.ajax_default_handlers
+        if h
+          h response, _ajax
           return
 
-        opts.handlers[handler_name] response, _ajax
+        window.hlib.INFO.error 'No handler for response status ' + response.status
 
       error:		(request, msg, e) ->
+        console.log 'error called', e
         window.hlib.INFO.error msg
 
 class window.hlib.Pager
@@ -219,8 +228,8 @@ class window.hlib.Form
 
         _form.clear()
 
-        if response.status != 200 and opts.hasOwnProperty('refill') and opts.refill == true and response.form_info.hasOwnProperty('orig_fields')
-          $(_form.field_id key).val value for own key, value of response.form_info.orig_fields
+        if response.status != 200 and opts.hasOwnProperty('refill') and opts.refill == true and response.form.hasOwnProperty('orig_fields')
+          $(_form.field_id key).val value for own key, value of response.form.orig_fields
 
         handler_name = 's' + response.status
 
@@ -252,10 +261,10 @@ class window.hlib.Form
     '#' + @opts.fid + '_' + name
 
   invalid_field:	(response) ->
-    if not response.form_info.hasOwnProperty 'invalid_field'
+    if not response.form.hasOwnProperty 'invalid_field'
       return null
 
-    new FormField @field_id response.form_info.invalid_field
+    new FormField @field_id response.form.invalid_field
 
   update_fields:	(fields) ->
     $(@field_id f).val v for f, v of fields
@@ -300,6 +309,7 @@ window.hlib.enable = (fid) ->
 
 window.hlib.enableIcon = (sel, callback) ->
   $(sel).removeClass 'icon-disabled'
+  $(sel).unbind 'click'
   $(sel).click () ->
     callback()
     return false
@@ -307,6 +317,7 @@ window.hlib.enableIcon = (sel, callback) ->
 window.hlib.disableIcon = (sel) ->
   $(sel).removeClass 'icon-disabled'
   $(sel).addClass 'icon-disabled'
+  $(sel).unbind 'click'
   $(sel).click () ->
     return false
 
@@ -344,7 +355,7 @@ window.hlib.clone = (obj) ->
   return newInstance
 
 window.hlib.redirect = (url) ->
-  window.location.replace url
+  window.location = url
 
 window.hlib.setTitle = (msg) ->
   document.title = msg
@@ -367,38 +378,51 @@ window.hlib.get_handler = (table_parent, handler_name, defaults) ->
 window.hlib.form_default_handlers =
   # Everything is all right
   s200:	(response, form) ->
-    if response.form_info and response.form_info.hasOwnProperty 'updated_fields'
-      form.update_fields response.form_info.updated_fields
+    if response.form and response.form.hasOwnProperty 'updated_fields'
+      form.update_fields response.form.updated_fields
 
     form.info.success 'Successfully changed'
+
+  # Redirect
+  s303:		(response, form) ->
+    window.hlib.redirect response.redirect.url
 
   # Bad Request - empty fields, invalid values, typos, ...
   s400:       (response, form) ->
     field = form.invalid_field(response)
     field.mark_error()
 
-    window.hlib.INFO.error response.message, () ->
+    window.hlib.INFO.error response.error.message, () ->
       field.unmark_error()
 
   # Unauthorized - wrong password, ACL violations, ...
   s401:       (response, form) ->
-    window.hlib.INFO.error response.message
+    window.hlib.INFO.error response.error.message
 
   # Conflicting errors - impossible requests, joining already joined games, etc...
   s402:       (response, form) ->
-    window.hlib.INFO.error response.message
+    window.hlib.INFO.error response.error.message
 
   # Invalid (not malformed!) input - duplicit names, unknown names etc.
   s403:       (response, form) ->
     field = form.invalid_field()
     field.mark_error()
 
-    window.hlib.INFO.error response.message, () ->
+    window.hlib.INFO.error response.error.message, () ->
       field.unmark_error()
 
   # Internal server error
   s500:		(response, form) ->
-    window.hlib.INFO.error response.message
+    window.hlib.INFO.error response.error.message
+
+window.hlib.ajax_default_handlers =
+  # Redirect
+  h303:		(response, form) ->
+    window.hlib.redirect response.redirect.url
+
+  # Internal server error
+  h500:		(response, form) ->
+    window.hlib.INFO.error response.error.message
 
 window.hlib.setup_common = (opts) ->
   window.hlib.OPTS = opts

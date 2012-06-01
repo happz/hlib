@@ -1,5 +1,6 @@
 import functools
 import logging
+import sys
 import syslog
 import time
 import traceback
@@ -54,5 +55,11 @@ def log_access():
   __log(' '.join(s), hruntime.app.channels.access)
 
 def log_error(e):
+  if e.dont_log == True:
+    print >> sys.stderr, 'Skipped exception: \'%s\'' % unicode(e).encode('ascii', 'replace')
+    return
+
+  print >> sys.stderr, unicode(e).encode('ascii', 'replace')
+
   for c in hruntime.app.channels.error:
     c.log_error(e)

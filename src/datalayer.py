@@ -20,7 +20,15 @@ class Server(DBObject):
   def __init__(self):
     DBObject.__init__(self)
 
-    self.events		= hlib.database.IndexedMapping()
+    self.events			= hlib.database.IndexedMapping()
+    self.maintenance_mode	= False
+
+  def __setstate__(self, d):
+    # FIXME
+    self.__dict__ = d
+
+    if 'maintenance_mode' not in d:
+      self.maintenance_mode = False
 
   def __getattr__(self, name):
     if name == 'online_users':
@@ -51,10 +59,18 @@ class User(DBObject):
     self.admin		= False
     self.date_format	= '%d/%m/%Y %H:%M:%S'
     self.email		= unicode(email)
+    self.maintenance_access	= False
 
     self.cookies	= hlib.database.SimpleMapping()
 
     self.events		= hlib.database.IndexedMapping()
+
+  def __setstate__(self, d):
+    # FIXME
+    self.__dict__ = d
+
+    if 'maintenance_access' not in d:
+      self.maintenance_access = False
 
   def __getattr__(self, name):
     if name == 'is_admin':

@@ -20,12 +20,12 @@ import hlib.log
 # pylint: disable-msg=F0401
 import hruntime
 
-class Error(Exception):
+class BaseError(Exception):
   """
   Top-level exception
   """
 
-  def __init__(self, msg = None, params = None, exception = None, exc_info = None, http_status = 500, reply_status = 0, invalid_field = None, **kwargs):
+  def __init__(self, msg = None, params = None, exception = None, exc_info = None, http_status = 500, reply_status = 500, dont_log = False):
     """
     @type msg:			C{string}
     @param msg:			Optional text of exception
@@ -33,18 +33,15 @@ class Error(Exception):
     @param params:		Optional params to replace in exception message
     """
 
-    super(Error, self).__init__()
+    super(BaseError, self).__init__()
 
-    self.msg       = msg
-    self.params    = params or {}
-    self.exception = exception
-    self.exc_info  = exc_info
-    self.http_status = http_status
-    self.reply_status = reply_status
-    self.invalid_field = invalid_field
+    self.msg			= msg or '<Empty message>'
+    self.params			= params or {}
+    self.exception		= exception
+    self.exc_info		= exc_info
 
-    for k, v in kwargs.iteritems():
-      setattr(self, k, v)
+    self.http_status		= http_status
+    self.reply_status		= reply_status
 
     if self.exc_info:
       self.tb = traceback.extract_tb(self.exc_info[2])
@@ -52,21 +49,30 @@ class Error(Exception):
     else:
       self.tb = traceback.extract_stack()[0:-1]
 
-  name			= property(lambda self: self.exc_info and self.exc_info[0].__name__ or '*Unknown*')
-  # pylint: disable-msg=W0703
-  message		= property(lambda self: self.msg.format(**self.params))
-  file		 	= property(lambda self: self.tb[-1][0])
-  line			= property(lambda self: self.tb[-1][1])
-  code			= property(lambda self: '%i. %s' % (self.line, open(self.file, 'r').readlines()[self.line]))
-  log_record		= property(lambda self: logging.makeLogRecord({'name': 'settlers', 'level': syslog.LOG_ERR, 'pathname': self.file, 'lineno': self.line, 'msg': self.msg, 'args': self.params, 'exc_info': self.exc_info, 'func': None}))
+    self.name			= self.exc_info and self.exc_info[0].__name__ or '<Unknown exception>'
+    self.message		= self.msg.format(**self.params)
+    self.file			= self.tb[-1][0]
+    self.line			= self.tb[-1][1]
+    with open(self.file, 'r') as f:
+      self.code			= '%i. %s' % (self.line, f.readlines()[self.line - 1])
+
+    self.log_record		= logging.makeLogRecord({'name': 'settlers', 'level': syslog.LOG_ERR, 'pathname': self.file, 'lineno': self.line, 'msg': self.msg, 'args': self.params, 'exc_info': self.exc_info, 'func': None})
+
+    self.dont_log		= dont_log
 
   def __str__(self):
-    return self.msg % self.params
+    return self.message
 
   def __unicode__(self):
-    return unicode(self.msg) % self.params
+    return unicode(self.message)
+
+  def args_for_reply(self):
+    return {}
 
 def error_from_exception(e):
+  if isinstance(e, BaseError):
+    return e
+
   if len(e.args) != 0:
     msg = ':'.join([unicode(i).encode('ascii', 'replace') for i in e.args])
 
@@ -77,11 +83,9 @@ def error_from_exception(e):
     # pylint: disable-msg=W0212
     msg = e._exceptions[0][1].args[0]
 
-  return Error(msg = msg, params = None, reply_status = 500, exception = e, exc_info = sys.exc_info())
+  return BaseError(msg = msg, params = None, exception = e, exc_info = sys.exc_info())
 
-ErrorByException = error_from_exception
-
-class DieError(Error):
+class DieError(BaseError):
   """
   "Kill-me-now" exception - we want to exit and rollback db changes and we want it now. Nothing
   less, nothing more.
@@ -94,7 +98,7 @@ class DieError(Error):
 
     super(DieError, self).__init__(msg = 'Die! Die! Die!')
 
-class UnimplementedError(Error):
+class UnimplementedError(BaseError):
   """
   Exception that signals some function is left unimplemented yet.
   """
@@ -120,14 +124,46 @@ class UnimplementedError(Error):
 
     super(UnimplementedError, self).__init__('Unimplemented abstract method: %(method)s', params = {'method': UnimplementedError.function_name(obj, 2)})
 
-class UnknownError(Error):
+class UnknownError(BaseError):
   pass
 
-class TemporarilyDisabled(Error):
+class TemporarilyDisabled(BaseError):
   pass
 
-class InvalidInputError(Error):
-  pass
+class InvalidInputError(BaseError):
+  def __init__(self, invalid_field = None, **kwargs):
+    super(InvalidInputError, self).__init__(**kwargs)
 
-class AccessDeniedError(Error):
-  pass
+    self.dont_log		= True
+    self.invalid_field		= invalid_field
+
+  def args_for_reply(self):
+    import hlib.api
+
+    return {'form': hlib.api.Form(orig_fields = True, invalid_field = self.invalid_field)}
+
+class AccessDeniedError(BaseError):
+  def __init__(self, **kwargs):
+    kwargs['reply_status']	= 401
+
+    super(AccessDeniedError, self).__init__(**kwargs)
+
+class NoSuchUserError(InvalidInputError):
+  def __init__(self, username, **kwargs):
+    kwargs['msg']		= 'No such user "%(username)s"'
+    kwargs.setdefault('params', {})['username'] = username
+
+    super(NoSuchUserError, self).__init__(**kwargs)
+
+class InvalidAuthError(BaseError):
+  def __init__(self, **kwargs):
+    kwargs['reply_status']	= 401
+    kwargs['dont_log']		= True
+
+    super(InvalidAuthError, self).__init__(**kwargs)
+
+class InconsistencyError(BaseError):
+  def __init__(self, **kwargs):
+    kwargs['reply_status']	= 402
+
+    super(InconsistencyError, self).__init__(**kwargs)

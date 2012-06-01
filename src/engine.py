@@ -256,14 +256,42 @@ class Response(object):
     self.status                 = 200
     self.headers                = HeaderMap()
     self.location		= None
-    self.output                 = None
+    self._output                = None
     self.output_length		= None
     self.time			= hruntime.time
 
-    self.raw_output		= None
+    self._raw_output		= None
     self.raw_output_length	= None
 
     self.headers['Content-Type'] = 'text/html; charset=utf-8'
+
+  def __getattr__(self, name):
+    if name == 'output':
+      return self._output
+
+    if name == 'raw_output':
+      return self._raw_output
+
+    raise AttributeError(name)
+
+  def __setattr__(self, name, value):
+    if name == 'output':
+      self._output = value
+
+      if value == None:
+        self.output_length = None
+      else:
+        self.output_length = len(value)
+
+    if name == 'raw_output':
+      self._raw_output = value
+
+      if value == None:
+        self.raw_output_length = None
+      else:
+        self.raw_output_length = len(value)
+
+    super(Response, self).__setattr__(name, value)
 
   def dumps(self):
     self.headers['Connection'] = 'close'
@@ -284,10 +312,8 @@ class Response(object):
         compressed = hlib.compress.compress(self.output)
 
         self.raw_output = self.output
-        self.raw_output_length = self.output_length
 
         self.output = compressed
-        self.output_length = len(self.output)
 
         self.headers['Content-Encoding'] = 'gzip'
 
@@ -423,6 +449,10 @@ def __on_request_started(e):
     hruntime.dont_commit = True
 
     raise hlib.http.Prohibited()
+
+  if hruntime.dbroot.server.maintenance_mode == True and req.requires_login and hruntime.user.maintenance_access != True:
+    hruntime.dont_commit = True
+    raise hlib.http.Redirect('/maintenance/')
 
   if req.requires_admin:
     if not hruntime.user.is_admin:

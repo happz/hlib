@@ -3,6 +3,22 @@
   import hlib
   import hruntime
 %>
+
+<%def name="trace()">
+<%
+    s = []
+    i = 0
+
+    for entry in error.tb:
+      i = i + 1
+      sl = len(str(i))
+
+      s.append('    %i. %s:%s %s' % (i, entry[0], entry[1], entry[2]))
+      s.append('  %s %s' % (' ' * (sl + 1), entry[3]))
+  %>${'\r\n'.join(s)}
+</%def>
+
+
 ----- ** ----- ** -----
 Exception occured at ${error.file}:${error.line}
   Stamp: ${time.strftime('%d/%m/%Y %H:%M:%S', hruntime.localtime)}
@@ -14,6 +30,7 @@ Exception occured at ${error.file}:${error.line}
   Request: <none>
   User: <unknown>
   % endif
+  TID: ${hruntime.tid}
 
   Request headers:
   % for (name, value) in hruntime.request.headers.iteritems():
@@ -25,14 +42,6 @@ Exception occured at ${error.file}:${error.line}
       ${name}: ${unicode(value).encode('ascii', 'replace')}
     % endfor
 
-  Call stack:
-    <% i = 0 %>
-    % for entry in error.tb:
-      <%
-        i = i + 1
-        sl = len(str(i))
-      %>
-      ${i}. ${entry[0]}:${entry[1]} ${entry[2]}
-      ${' ' * (sl + 1)} ${entry[3]}
-    % endfor
+  Call stack:${trace().strip()}
+
 ----- ** ----- ** -----

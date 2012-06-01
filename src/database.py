@@ -16,7 +16,7 @@ import hlib
 import hlib.error
 import hlib.log
 
-class CommitFailedError(hlib.error.Error):
+class CommitFailedError(hlib.error.BaseError):
   pass
 
 class Storage(object):
@@ -39,7 +39,7 @@ class Storage_MySQL(Storage):
       return relstorage.storage.RelStorage(adapter)
 
     except Exception, e:
-      raise hlib.error.Error(msg = e.args[1], exception = e, exc_info = sys.exc_info())
+      raise hlib.error.BaseError(msg = e.args[1], exception = e, exc_info = sys.exc_info())
 
 class Storage_File(Storage):
   @staticmethod

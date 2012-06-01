@@ -61,12 +61,9 @@ def run_page_handler():
     raise e
 
   except Exception, e:
-    print e
     hruntime.dont_commit = True
 
-    if not isinstance(e, hlib.error.Error):
-      e = hlib.error.ErrorByException(e)
-
+    e = hlib.error.error_from_exception(e)
     hlib.log.log_error(e)
 
     return ''

@@ -2,4 +2,4 @@
 
 PACKAGES='events/ handlers/ templates/ ui/ log/ .'
 
-grep -r "$1" $PACKAGES | egrep \.py | egrep -v \.svn | egrep -v \~ | egrep -v \.pyc
+grep -r "$1" $PACKAGES | egrep \.py | egrep -v -e \.svn -e \~ -e \.pyc -e \.pyo
