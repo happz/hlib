@@ -1,5 +1,6 @@
 import types
 
+# pylint: disable-msg=F0401
 import hruntime
 
 class Channel(object):

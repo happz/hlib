@@ -20,9 +20,11 @@ class Pageable(object):
     self.default_length = default_length if default_length != None else 20
 
   def record_to_api(self, record):
+    # pylint: disable-msg=W0613
     return None
 
   def get_records(self, start, length):
+    # pylint: disable-msg=W0613
     return ([], 0)
     
   def get_page(self, start = None, length = None):

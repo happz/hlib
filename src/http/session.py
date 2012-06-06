@@ -38,7 +38,7 @@ class Storage(UserDict.UserDict):
       if hruntime.time - self.__online_ctime > 60:
         self.__online = []
 
-        for session in self.sessions.itervalues():
+        for session in self.sessions.values():
           if session.time > hruntime.time - 300 and hasattr(session, 'authenticated') and hasattr(session, 'name'):
             self.__online.append(session.name)
 
@@ -48,7 +48,7 @@ class Storage(UserDict.UserDict):
     with self.lock:
       rm = []
 
-      for session in self.sessions.itervalues():
+      for session in self.sessions.values():
         # pylint: disable-msg=E1101
         if hruntime.time - session.time > self.app.config['sessions.time']:
           rm.append(session)

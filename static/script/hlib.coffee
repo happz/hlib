@@ -149,12 +149,12 @@ class window.hlib.Pager
       data:		data
       handlers:
         h200:		(response, _ajax) ->
-          _pager.items = response.cnt_total
+          _pager.items = response.page.cnt_total
 
           $(_pager.eid + ' tbody').html ''
-          $(_pager.eid + ' tbody').append window.hlib.render _pager.template, record for record in response.records
+          $(_pager.eid + ' tbody').append window.hlib.render _pager.template, record for record in response.page.records
 
-          $(_pager.eid + ' span.chat-position').html '' + (_pager.start + 1) + '. - ' + (Math.min _pager.items, _pager.start + response.cnt_display) + '. z ' + _pager.items
+          $(_pager.eid + ' span.chat-position').html '' + (_pager.start + 1) + '. - ' + (Math.min _pager.items, _pager.start + response.page.cnt_display) + '. z ' + _pager.items
 
           window.hlib.INFO._hide()
 
@@ -405,7 +405,7 @@ window.hlib.form_default_handlers =
 
   # Invalid (not malformed!) input - duplicit names, unknown names etc.
   s403:       (response, form) ->
-    field = form.invalid_field()
+    field = form.invalid_field(response)
     field.mark_error()
 
     window.hlib.INFO.error response.error.message, () ->

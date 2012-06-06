@@ -14,9 +14,9 @@ class Cache(object):
     import hlib.stats	# Don't import as global, => circular imports :'(
     with hlib.stats.stats_lock:
       hlib.stats.stats['Cache (%s)' % self.name] = {
-        'Total objects':	lambda s: sum([len(chain) for chain in self.objects.values()]),
+        'Total objects':	lambda s: sum([len(chain) for chain in self.objects.itervalues()]),
         'Total chains':		lambda s: len(self.objects),
-        'Total size':		lambda s: sum([sum([len(v) for v in chain.values()]) for chain in self.objects.values()]),
+        'Total size':		lambda s: sum([sum([len(v) for v in chain.itervalues()]) for chain in self.objects.itervalues()]),
         'Hits':			0,
         'Misses':		0,
         'Inserts':		0,

@@ -77,6 +77,8 @@ class Application(object):
 
     c['mail.server']		= 'localhost'
 
+    c['log.access.format']	= '{date} {time} {request_line} {response_status} {response_length} {request_ip} {request_user}'
+
     return c
 
   def get_handler(self, requested):

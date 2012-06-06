@@ -174,6 +174,9 @@ class IndexedMapping(DBObject):
   def values(self, *args, **kwargs):
     return self.data.values(*args, **kwargs)
 
+  def items(self, *args, **kwargs):
+    return self.data.items(*args, **kwargs)
+
   def push(self, o):
     if len(self.data) == 0:
       i = self.first_key

@@ -31,28 +31,19 @@ def __log(msg, channels):
     c.log_message(msg)
 
 def log_access():
-  s = [
-    ':'.join(hruntime.request.ip),
-    '-',
-    '-',
-    str(hruntime.time),
-    '"%s"' % hruntime.request.requested_line,
-    str(hruntime.response.status),
-    hruntime.response.output_length != None and str(hruntime.response.output_length) or '-',
-    '"%s"' % hruntime.request.headers.get('User-Agent', '')
-  ]
+  params = {
+    'stamp':			hruntime.localtime,
+    'date':			time.strftime('%d/%m/%Y', hruntime.localtime),
+    'time':			time.strftime('%H:%M:%S', hruntime.localtime),
+    'request_line':		hruntime.request.requested_line,
+    'request_ip':		':'.join(hruntime.request.ip),
+    'request_user':		hruntime.session.name if hruntime.session != None and hasattr(hruntime.session, 'authenticated') and hasattr(hruntime.session, 'name') else '-',
+    'request_agent':		hruntime.request.headers.get('User-Agent', '-'),
+    'response_status':		hruntime.response.status,
+    'response_length':		hruntime.response.output_length != None and hruntime.response.output_length or 0,
+  }
 
-  s = [
-    time.strftime('%d/%m/%Y %H:%M:%S', hruntime.localtime),
-    '"%s"' % hruntime.request.requested_line,
-    str(hruntime.response.status),
-    hruntime.response.output_length != None and str(hruntime.response.output_length) or '-'
-  ]
-
-  if hruntime.session != None and hasattr(hruntime.session, 'authenticated') and hasattr(hruntime.session, 'name'):
-    s.append('"%s"' % hruntime.session.name)
-
-  __log(' '.join(s), hruntime.app.channels.access)
+  __log(hruntime.app.config['log.access.format'].format(**params), hruntime.app.channels.access)
 
 def log_error(e):
   if e.dont_log == True:
