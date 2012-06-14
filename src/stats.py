@@ -11,6 +11,10 @@ import hruntime
 
 stats = {
   'Engine': {
+    '__fmt__':			{
+      'no_fmt':			['Current time', 'Start time']
+    },
+
     'Current time':		lambda s: hruntime.time,
     'Current requests':		0,
 
@@ -39,7 +43,10 @@ def snapshot(d_in):
     d_out = {}
 
     for k, v in list(d_in.items()):
-      if isinstance(v, dict):
+      if k == '__fmt__':
+        pass
+
+      elif isinstance(v, dict):
         v = snapshot(v)
 
       elif isinstance(v, (list, tuple)):

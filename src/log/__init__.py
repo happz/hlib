@@ -32,6 +32,7 @@ def __log(msg, channels):
 
 def log_access():
   params = {
+    'tid':			hruntime.tid,
     'stamp':			hruntime.localtime,
     'date':			time.strftime('%d/%m/%Y', hruntime.localtime),
     'time':			time.strftime('%H:%M:%S', hruntime.localtime),

@@ -56,7 +56,7 @@
   </label>
 </%def>
 
-<%def name="w_form_start(action, legend, id, method = None, classes = None)">
+<%def name="w_form_start(action, legend, id, method = None, classes = None, not_working = False)">
   <%
     method = method or 'post'
 
@@ -67,6 +67,9 @@
     <fieldset>
       <legend>${_(legend)}</legend>
       <div class="form-forminfo"></div>
+      % if not_working:
+        <div class="formee-msg-error"><label>${_('This form is not working yet.')}</label></div>
+      % endif
 </%def>
 
 <%def name="w_form_input(name, type, label = None, required = False, append_colon = False, default = None, struct = True)">

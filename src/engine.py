@@ -12,6 +12,7 @@ __license__             = 'http://www.php-suit.com/dpl'
 import hashlib
 import os.path
 import pprint
+import signal
 import sys
 import thread
 import time
@@ -68,6 +69,7 @@ class Application(object):
 
     c['dir']			= app_path
     c['title']			= None
+    c['label']			= None
     c['cache.enabled']		= None
 
     c['templates.dirs']		= [os.path.join(app_path, 'src', 'templates'), os.path.join(hlib.PATH, 'templates')]
@@ -78,6 +80,9 @@ class Application(object):
     c['mail.server']		= 'localhost'
 
     c['log.access.format']	= '{date} {time} {request_line} {response_status} {response_length} {request_ip} {request_user}'
+
+    c['sessions.time']		= 2 * 86400
+    c['sessions.cookie_name']	= 'hlib_sid'
 
     return c
 
@@ -233,8 +238,9 @@ class Request(object):
         self.cookies[n] = hlib.http.cookies.Cookie(n, value = v, server = self.server)
 
     # Restore session if any
-    if 'settlers_sid' in self.cookies:
-      cookie = self.cookies['settlers_sid']
+    sid_cookie_name = hruntime.app.config['sessions.cookie_name']
+    if sid_cookie_name in self.cookies:
+      cookie = self.cookies[sid_cookie_name]
 
       if hruntime.app.sessions.exists(cookie.value):
         session = hruntime.app.sessions.load(cookie.value)
@@ -249,6 +255,7 @@ class Request(object):
       hruntime.session = session
     else:
       session.destroy()
+      hruntime.session = None
 
 class Response(object):
   def __init__(self):
@@ -304,7 +311,8 @@ class Response(object):
     if hruntime.session != None:
       hruntime.session.save()
 
-      self.cookies['settlers_id'] = hlib.http.cookies.Cookie('settlers_sid', value = hruntime.session.sid, server = hruntime.request.server)
+      sid_cookie_name = hruntime.app.config['sessions.cookie_name']
+      self.cookies[sid_cookie_name] = hlib.http.cookies.Cookie(sid_cookie_name, value = hruntime.session.sid, server = hruntime.request.server)
 
     for name, cookie in self.cookies.iteritems():
       self.headers['Set-Cookie'] = '%s=%s; Max-Age=%s; Path=%s' % (cookie.name, urllib.quote(cookie.value), cookie.max_age, cookie.path)
@@ -345,11 +353,30 @@ class Engine(object):
   def __init__(self, server_configs):
     super(Engine, self).__init__()
 
-    self.servers = []
+    self.servers	= []
+    self.apps		= {}
 
     for sc in server_configs:
+      self.apps[sc['app'].name] = sc['app']
+
       server = hlib.server.Server(sc, (sc['host'], sc['port']), hlib.server.RequestHandler)
       self.servers.append(server)
+
+    signal.signal(signal.SIGHUP, self.signal_hup)
+
+  def signal_hup(self, signum, frame):
+    if signum != signal.SIGHUP:
+      return
+
+    hlib.config['log.channels.error'].reopen()
+
+    for app in self.apps.values():
+      print 'Reopening channels for app %s' % app.name
+
+      for c in app.channels.access:
+        c.reopen()
+      for c in app.channels.error:
+        c.reopen()
 
   def start(self):
     hlib.event.trigger('engine.Started', None, post = False)
@@ -436,11 +463,7 @@ def __on_request_started(e):
   """
 
   hruntime.db.start_transaction()
-
-  hruntime.user			= None
-  hruntime.dont_commit		= False
-  hruntime.ui_form		= None
-  hruntime.time			= None
+  hruntime.clean()
 
   req = hruntime.request
 

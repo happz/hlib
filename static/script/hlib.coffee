@@ -74,6 +74,10 @@ class window.hlib.Ajax
       opts.async = false
     if not opts.hasOwnProperty 'data'
       opts.data = {}
+    if not opts.hasOwnProperty 'keep_focus'
+      opts.keep_focus = false
+
+    focus_elements = $(document.activeElement)
 
     $.ajax
       dataType:		'json'
@@ -98,6 +102,10 @@ class window.hlib.Ajax
         h = window.hlib.get_handler opts, handler_name, window.hlib.ajax_default_handlers
         if h
           h response, _ajax
+
+          if opts.keep_focus and focus_elements[0] and focus_elements[0].id
+            $('#' + focus_elements[0].id).focus()
+
           return
 
         window.hlib.INFO.error 'No handler for response status ' + response.status
@@ -110,6 +118,7 @@ class window.hlib.Pager
   constructor:		(opts) ->
     _pager = @
 
+    @id_prefix	= opts.id_prefix
     @url	= opts.url
     @eid	= opts.eid
     @data	= opts.data
@@ -119,19 +128,19 @@ class window.hlib.Pager
     @length	= opts.length
     @items	= null
 
-    $(@eid + ' span.chat-first').click () ->
+    $(@eid + ' span.' + @id_prefix + '-first').click () ->
       _pager.first()
       return false
 
-    $(@eid + ' span.chat-last').click () ->
+    $(@eid + ' span.' + @id_prefix + '-last').click () ->
       _pager.last()
       return false
 
-    $(@eid + ' span.chat-prev').click () ->
+    $(@eid + ' span.' + @id_prefix + '-prev').click () ->
       _pager.prev()
       return false
 
-    $(@eid + ' span.chat-next').click () ->
+    $(@eid + ' span.' + @id_prefix + '-next').click () ->
       _pager.next()
       return false
 
@@ -154,7 +163,7 @@ class window.hlib.Pager
           $(_pager.eid + ' tbody').html ''
           $(_pager.eid + ' tbody').append window.hlib.render _pager.template, record for record in response.page.records
 
-          $(_pager.eid + ' span.chat-position').html '' + (_pager.start + 1) + '. - ' + (Math.min _pager.items, _pager.start + response.page.cnt_display) + '. z ' + _pager.items
+          $(_pager.eid + ' span.' + _pager.id_prefix + '-position').html '' + (_pager.start + 1) + '. - ' + (Math.min _pager.items, _pager.start + response.page.cnt_display) + '. z ' + _pager.items
 
           window.hlib.INFO._hide()
 
@@ -298,6 +307,9 @@ window.hlib.OPTS =		null
 window.hlib.INFO =		null
 
 window.hlib._g = (s) ->
+  if window.settlers.i18n and window.settlers.i18n.tokens and s in window.settlers.i18n.tokens
+    return window.settlers.i18n.tokens[s]
+
   return s
 
 window.hlib.disable = (fid) ->
@@ -375,6 +387,16 @@ window.hlib.get_handler = (table_parent, handler_name, defaults) ->
 
   return false
 
+window.hlib.error = (error, after) ->
+  msg = error.message
+
+  __per_param = (name, value) ->
+    msg = msg.replace '%(' + name + ')s', value
+
+  __per_param name, value for own name, value of error.params
+
+  window.hlib.INFO.error msg, after
+
 window.hlib.form_default_handlers =
   # Everything is all right
   s200:	(response, form) ->
@@ -392,28 +414,28 @@ window.hlib.form_default_handlers =
     field = form.invalid_field(response)
     field.mark_error()
 
-    window.hlib.INFO.error response.error.message, () ->
+    window.hlib.error response.error, () ->
       field.unmark_error()
 
   # Unauthorized - wrong password, ACL violations, ...
   s401:       (response, form) ->
-    window.hlib.INFO.error response.error.message
+    window.hlib.error response.error
 
   # Conflicting errors - impossible requests, joining already joined games, etc...
   s402:       (response, form) ->
-    window.hlib.INFO.error response.error.message
+    window.hlib.error response.error
 
   # Invalid (not malformed!) input - duplicit names, unknown names etc.
   s403:       (response, form) ->
     field = form.invalid_field(response)
     field.mark_error()
 
-    window.hlib.INFO.error response.error.message, () ->
+    window.hlib.error response.error, () ->
       field.unmark_error()
 
   # Internal server error
   s500:		(response, form) ->
-    window.hlib.INFO.error response.error.message
+    window.hlib.error response.error
 
 window.hlib.ajax_default_handlers =
   # Redirect
@@ -422,7 +444,7 @@ window.hlib.ajax_default_handlers =
 
   # Internal server error
   h500:		(response, form) ->
-    window.hlib.INFO.error response.error.message
+    window.hlib.error response.error
 
 window.hlib.setup_common = (opts) ->
   window.hlib.OPTS = opts

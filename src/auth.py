@@ -37,6 +37,7 @@ def start_session(user = None, tainted = False):
                                 and its id is saved to session.
   """
 
+  hruntime.session = hlib.http.session.Session.create()
   hruntime.session.refresh_sid()
 
   hruntime.session.authenticated = True

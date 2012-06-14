@@ -142,22 +142,25 @@ class FileStorage(Storage):
         del self.sessions[name]
         self.save_sessions()
 
-def gen_sid():
-  # hashlib.md5 exists, no matter what pylint says...
-  # pylint: disable-msg=E1101
-  return hashlib.md5('%s-%s-%s' % (':'.join(hruntime.request.ip), hruntime.time, gen_rand_string(10))).hexdigest()
-
 class Session(object):
-  def __init__(self, storage, sid, time, ip):
+  def __init__(self, storage, time, ip):
     super(Session, self).__init__()
 
     self.storage	= storage
-    self.sid		= sid
+    self.code		= None
+    self.sid		= None
     self.time		= time
     self.ip		= ':'.join(ip)
 
+    self.gen_sid()
+
   def __str__(self):
-    return '%s - %s - %s (%s)' % (self.sid, self.time, self.ip, hruntime.time - self.time)
+    data = {
+      'authenticated': self.authenticated if hasattr(self, 'authenticated') else None,
+      'name': self.name if hasattr(self, 'name') else None
+    }
+
+    return 'sid="%s", time="%s", ip="%s", age="%s", data="%s"' % (self.sid, self.time, self.ip, hruntime.time - self.time, data)
 
   def __getstate__(self):
     d = self.__dict__.copy()
@@ -170,7 +173,11 @@ class Session(object):
 
   @staticmethod
   def create():
-    return hlib.http.session.Session(hruntime.app.sessions, gen_sid(), hruntime.time, hruntime.request.ip)
+    return hlib.http.session.Session(hruntime.app.sessions, hruntime.time, hruntime.request.ip)
+
+  def gen_sid(self):
+    self.code		= gen_rand_string(10)
+    self.sid		= hashlib.md5('%s-%s-%s' % (':'.join(hruntime.request.ip), hruntime.time, self.code)).hexdigest()
 
   def check(self):
     if self.ip != ':'.join(hruntime.request.ip):
@@ -180,10 +187,8 @@ class Session(object):
     return True
 
   def refresh_sid(self):
-    new_sid = gen_sid()
-
     del self.storage[self.sid]
-    self.sid = new_sid
+    self.gen_sid()
 
   def save(self):
     self.storage[self.sid] = self

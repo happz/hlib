@@ -15,6 +15,9 @@ class Channel(object):
   def log_error(self, error):
     pass
 
+  def reopen(self):
+    pass
+
 class StreamChannel(Channel):
   def __init__(self, stream, *args, **kwargs):
     super(StreamChannel, self).__init__(*args, **kwargs)
