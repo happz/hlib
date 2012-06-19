@@ -59,57 +59,6 @@ def snapshot(d_in):
 
     return d_out
 
-def __on_request_connected(e):
-  # pylint: disable-msg=W0613
-  with stats_lock:
-    stats['Engine']['Current requests'] += 1
-    stats['Engine']['Total requests'] += 1
-
-    d = {
-      'Bytes read':			0,
-      'Bytes written':			0,
-      'Client':				':'.join(hruntime.request.ip),
-      'Start time':			hruntime.time,
-      'End time':			None,
-      'Requested line':			None,
-      'Response status':		None
-    }
-    d['Processing time'] = time.time() - d['Start time']
-
-    stats['Engine']['Requests'][hruntime.tid] = d
-
-hlib.event.Hook('engine.RequestConnected', 'hlib_stats', __on_request_connected)
-
-def __on_request_accepted(e):
-  # pylint: disable-msg=W0613
-  with stats_lock:
-    d = stats['Engine']['Requests'][hruntime.tid]
-
-    d['Client']				= ':'.join(hruntime.request.ip)
-    d['Requested line']			= hruntime.request.requested_line
-
-hlib.event.Hook('engine.RequestAccepted', 'hlib_stats', __on_request_accepted)
-
-def __on_request_finished(e):
-  # pylint: disable-msg=W0613
-  with stats_lock:
-    d = stats['Engine']['Requests'][hruntime.tid]
-    ri = hruntime.request
-    ro = hruntime.response
-
-    d['Bytes read']			+= ri.read_bytes
-    d['Bytes written']			+= ri.written_bytes
-    d['Response status']		=  ro.status
-    d['End time']			=  time.time()
-    d['Processing time']		=  d['End time'] - d['Start time']
-
-    stats['Engine']['Total bytes read']		+= ri.read_bytes
-    stats['Engine']['Total bytes written']	+= ri.written_bytes
-    stats['Engine']['Total time']		+= d['Processing time']
-    stats['Engine']['Current requests']		-= 1
-
-hlib.event.Hook('engine.RequestFinished', 'hlib_stats', __on_request_finished)
-
 def iter_collection(collection):
   if type(collection) == types.DictType:
     keys = collection.keys()

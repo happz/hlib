@@ -164,7 +164,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
     try:
       self.request.sendall(output)
 
-    # pylint: disable-msg=
+    # pylint: disable-msg=W0703
     except Exception, e:
       # Just log error, nothing else to do - it's too late
       __fail(0, exc = e)

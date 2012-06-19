@@ -88,12 +88,12 @@
   % endif
 </%def>
 
-<%def name="w_form_select(name, label = None, default = True, required = False, struct = True)">
+<%def name="w_form_select(name, label = None, default = True, required = False, struct = True, append_colon = False)">
   % if struct == True:
     <div class="grid-12-12">
   % endif
   % if label != None:
-    ${w_helper_label(label, required = required)}
+    ${w_helper_label(label, required = required, append_colon = append_colon)}
   % endif
   <select name="${name}" id="${hruntime.ui_form + '_' + name}">
 

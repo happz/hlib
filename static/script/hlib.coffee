@@ -183,19 +183,30 @@ class window.hlib.Pager
     @start = Math.min @items - 1, @start + @length
     @refresh()
 
+class window.hlib.FormField
+  constructor:	(@fid) ->
+
+  mark_error:		() ->
+    $(@fid).focus()
+    $(@fid).addClass 'formee-error'
+    $(@fid).val ''
+
+  unmark_error:	() ->
+    $(@fid).removeClass 'formee-error'
+    $(@fid).focus()
+
+  enable:		() ->
+    $(@fid).removeAttr 'disabled'
+    $(@fid).removeClass 'disabled'
+
+  disable:		() ->
+    $(@fid).attr 'disabled', true
+    $(@fid).addClass 'disabled'
+
+  empty:		() ->
+    $(@fid).html ''
+
 class window.hlib.Form
-  class FormField
-    constructor:	(@fid) ->
-
-    mark_error:		() ->
-      $(@fid).focus()
-      $(@fid).addClass 'formee-error'
-      $(@fid).val('')
-
-    unmark_error:	() ->
-      $(@fid).removeClass 'formee-error'
-      $(@fid).focus()
-
   class FormInfo
     constructor:	(form) ->
       @eid = form.fid + ' .form-forminfo'
@@ -214,7 +225,7 @@ class window.hlib.Form
       this._show msg, 'formee-msg-success'
 
   clear:		() ->
-    $('#' + @opts.fid + '_' + name).val '' for name in @opts.clear_fields
+    $(@field_id name).val '' for name in @opts.clear_fields
 
   constructor: (opts) ->
     @opts = opts
@@ -224,6 +235,9 @@ class window.hlib.Form
 
     if not opts.hasOwnProperty 'clear_fields'
       opts.clear_fields = []
+
+    if not opts.hasOwnProperty 'disable_fields'
+      opts.disable_fields = []
 
     if not opts.hasOwnProperty 'submit_empty'
       opts.submit_empty = false
@@ -266,14 +280,19 @@ class window.hlib.Form
     if opts.hasOwnProperty 'focus'
       $(@field_id opts.focus).focus()
 
+    (@field f).disable() for f in opts.disable_fields
+
   field_id:		(name) ->
     '#' + @opts.fid + '_' + name
+
+  field:		(name) ->
+    return new window.hlib.FormField @field_id name
 
   invalid_field:	(response) ->
     if not response.form.hasOwnProperty 'invalid_field'
       return null
 
-    new FormField @field_id response.form.invalid_field
+    return @field response.form.invalid_field
 
   update_fields:	(fields) ->
     $(@field_id f).val v for f, v of fields
@@ -307,9 +326,8 @@ window.hlib.OPTS =		null
 window.hlib.INFO =		null
 
 window.hlib._g = (s) ->
-  if window.settlers.i18n and window.settlers.i18n.tokens and s in window.settlers.i18n.tokens
+  if window.settlers.i18n and window.settlers.i18n.tokens and window.settlers.i18n.tokens.hasOwnProperty s
     return window.settlers.i18n.tokens[s]
-
   return s
 
 window.hlib.disable = (fid) ->

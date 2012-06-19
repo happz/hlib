@@ -265,12 +265,16 @@ class Response(object):
     self.status                 = 200
     self.headers                = HeaderMap()
     self.location		= None
+    self.time			= hruntime.time
+
     self._output                = None
     self.output_length		= None
-    self.time			= hruntime.time
 
     self._raw_output		= None
     self.raw_output_length	= None
+
+    self.output			= None
+    self.raw_output		= None
 
     self.headers['Content-Type'] = 'text/html; charset=utf-8'
 
@@ -437,14 +441,40 @@ def __on_thread_finished(e):
 
 hlib.event.Hook('engine.ThreadFinished', 'pass', __on_thread_finished)
 
+def __on_request_connected(e):
+  from hlib.stats import stats as sd
+  from hlib.stats import stats_lock as sl
+
+  # pylint: disable-msg=W0613
+  with sl:
+    sd['Engine']['Current requests'] += 1
+    sd['Engine']['Total requests'] += 1
+
+    d = {
+      'Bytes read':                     0,
+      'Bytes written':                  0,
+      'Client':                         ':'.join(hruntime.request.ip),
+      'Start time':                     hruntime.time,
+      'End time':                       None,
+      'Requested line':                 None,
+      'Response status':                None
+    }
+    d['Processing time'] = time.time() - d['Start time']
+
+    sd['Engine']['Requests'][hruntime.tid] = d
+
+hlib.event.Hook('engine.RequestConnected', 'hlib_generic', __on_request_connected)
+
 def __on_request_accepted(e):
-  """
-  Default hlib handler for C{engine.RequestAccepted} event.
+  from hlib.stats import stats as sd
+  from hlib.stats import stats_lock as sl
 
-  Unused right now.
-  """
+  # pylint: disable-msg=W0613
+  with sl:
+    d = sd['Engine']['Requests'][hruntime.tid]
 
-  pass
+    d['Client']                         = ':'.join(hruntime.request.ip)
+    d['Requested line']                 = hruntime.request.requested_line
 
 hlib.event.Hook('engine.RequestAccepted', 'hlib_generic', __on_request_accepted)
 
@@ -491,7 +521,7 @@ def __on_request_finished(e):
   """
   Default hlib handler for C{engine.RequestFinished} event.
 
-  Clean up after finished request. Log access into access log and commit (or rollback) database changes.
+  Clean up after finished request. Log access into access log, commit (or rollback) database changes and update statistics.
 
   @type e:			L{hlib.events.engine.RequestFinished}
   @param e:			Current event.
@@ -515,6 +545,26 @@ def __on_request_finished(e):
     return
 
   hlib.log.log_error(hlib.database.CommitFailedError())
+
+  from hlib.stats import stats as sd
+  from hlib.stats import stats_lock as sl
+
+  # pylint: disable-msg=W0613
+  with sl:
+    d = sd['Engine']['Requests'][hruntime.tid]
+    ri = hruntime.request
+    ro = hruntime.response
+
+    d['Bytes read']                     += ri.read_bytes
+    d['Bytes written']                  += ri.written_bytes
+    d['Response status']                =  ro.status
+    d['End time']                       =  time.time()
+    d['Processing time']                =  d['End time'] - d['Start time']
+
+    sd['Engine']['Total bytes read']         += ri.read_bytes
+    sd['Engine']['Total bytes written']      += ri.written_bytes
+    sd['Engine']['Total time']               += d['Processing time']
+    sd['Engine']['Current requests']         -= 1
 
 hlib.event.Hook('engine.RequestFinished', 'hlib_generic', __on_request_finished)
 

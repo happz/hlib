@@ -11,9 +11,11 @@ class Cache(object):
     self.lock		= threading.RLock()
     self.objects	= {}
 
-    import hlib.stats	# Don't import as global, => circular imports :'(
-    with hlib.stats.stats_lock:
-      hlib.stats.stats['Cache (%s)' % self.name] = {
+    from hlib.stats import stats as sd
+    from hlib.stats import stats_lock as sl
+
+    with sl:
+      sd['Cache (%s - %s)' % (self.app.name, self.name)] = {
         'Total objects':	lambda s: sum([len(chain) for chain in self.objects.itervalues()]),
         'Total chains':		lambda s: len(self.objects),
         'Total size':		lambda s: sum([sum([len(v) for v in chain.itervalues()]) for chain in self.objects.itervalues()]),

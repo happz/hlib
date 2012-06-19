@@ -64,7 +64,11 @@ def validate(schema = None, params = None, update_request = True):
   except formencode.Invalid, e:
     if e.error_dict:
       field_name, field_error = e.error_dict.items()[0]
-      msg = field_error.msg
+
+      if type(field_error) in types.StringTypes:
+        msg = field_error
+      else:
+        msg = field_error.msg
 
     else:
       msg = e.msg

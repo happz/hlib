@@ -32,17 +32,27 @@ class Storage(UserDict.UserDict):
     self.__online	= None
     self.__online_ctime	= 0
 
+    from hlib.stats import stats as sd
+    from hlib.stats import stats_lock as sl
+
+    with sl:
+      sd['Sessions (%s)' % self.app.name] = {
+        'Active':		lambda s: ', '.join(self.online_users)
+      }
+
   @property
   def online_users(self):
     with self.lock:
-      if hruntime.time - self.__online_ctime > 60:
+      if hruntime.time - self.__online_ctime > 60 or self.__online == None:
         self.__online = []
 
         for session in self.sessions.values():
           if session.time > hruntime.time - 300 and hasattr(session, 'authenticated') and hasattr(session, 'name'):
             self.__online.append(session.name)
 
-      return self.__online
+        self.__online_ctime = hruntime.time
+
+      return list(self.__online)
 
   def purge(self):
     with self.lock:
@@ -55,6 +65,8 @@ class Storage(UserDict.UserDict):
 
       for session in rm:
         session.destroy()
+
+      self.__online = None
 
   def load(self, sid):
     return self[sid]
