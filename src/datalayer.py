@@ -1,3 +1,12 @@
+"""
+Basic database objects
+"""
+
+__author__              = 'Milos Prchlik'
+__copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
+__contact__             = 'happz@happz.cz'
+__license__             = 'http://www.php-suit.com/dpl'
+
 import hlib.database
 from hlib.database import DBObject
 import hlib.http
@@ -54,10 +63,10 @@ class User(DBObject):
   def __init__(self, name, password, email):
     DBObject.__init__(self)
 
-    self.name		= unicode(name)
+    self.name     = unicode(name)
     self.password	= unicode(password)
     self.admin		= False
-    self.date_format	= '%d/%m/%Y %H:%M:%S'
+    self.date_format = '%d/%m/%Y %H:%M:%S'
     self.email		= unicode(email)
     self.maintenance_access	= False
 
