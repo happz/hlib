@@ -1,4 +1,14 @@
-# Dummy SQL module for external SQL queries
+"""
+Dummy SQL module for simple acces to external relational databases
+
+MySQL-only support by now.
+"""
+
+__author__              = 'Milos Prchlik'
+__copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
+__contact__             = 'happz@happz.cz'
+__license__             = 'http://www.php-suit.com/dpl'
+
 import MySQLdb
 
 class DataBaseConnection(object):

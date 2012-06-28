@@ -1,5 +1,7 @@
 """
 Basic classes for hlib functionality.
+
+@newfield default: Default
 """
 
 __author__		= 'Milos Prchlik'
@@ -106,8 +108,8 @@ class Runtime(threading.local):
 
   def __init__(self, *properties):
     """
-    @type args:			C{list} of C{string}s
-    @param args:		List of names of properties this module holds. Properties that are handled by C{__getattr__}/C{__setattr__} method are NOT included.
+    @type properties:			C{list} of C{string}s
+    @param properties:		List of names of properties this module holds. Properties that are handled by C{__getattr__}/C{__setattr__} method are NOT included.
     """
 
     if self.__init_done == True:
