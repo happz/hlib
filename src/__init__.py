@@ -11,11 +11,10 @@ __version__		= '3.0-rc1'
 import os.path
 import random
 import sys
+import threading
 import time
 import traceback
 import types
-
-import hlib.threadinglocal
 
 __version__ = '3.0-rc1'
 """
@@ -55,13 +54,7 @@ PATH = os.path.dirname(__file__)
 def url(path = None):
   return 'http://' + hruntime.request.base + path
 
-# Thread-local/-global variables
-_locals = hlib.threadinglocal.local()
-"""
-Thread-specific data storage
-"""
-
-class Runtime(types.ModuleType):
+class Runtime(threading.local):
   """
   Module-like wrapper for thread-local and request-specific variables. This module can be imported as C{hruntime}.
 
@@ -107,28 +100,29 @@ class Runtime(types.ModuleType):
     """
 
     for p in self.properties:
-      setattr(_locals, p, None)
+      setattr(self, p, None)
 
-    _locals._stamp = None
+    self._stamp = None
 
-  def __init__(self, *args):
+  def __init__(self, *properties):
     """
     @type args:			C{list} of C{string}s
     @param args:		List of names of properties this module holds. Properties that are handled by C{__getattr__}/C{__setattr__} method are NOT included.
     """
 
-    # pylint: disable-msg=W0233
-    types.ModuleType.__init__(self, 'hlib.runtime')
+    if self.__init_done == True:
+      raise SystemError('__init__ called too many times')
 
-    self.properties = args
+    # pylint: disable-msg=W0233
+    threading.local.__init__(self)
+
+    self.properties = properties
 
     self.reset_locals()
-    self.__init_done = False
+
+    self.__init_done = True
 
   def __getattr__(self, name):
-    if name in self.properties:
-      return getattr(_locals, name)
-
     if name == 'localtime':
       return time.localtime(self.time)
 
@@ -137,26 +131,18 @@ class Runtime(types.ModuleType):
 
     # pylint: disable-msg=W0212
     if name == 'time':
-      if not hasattr(_locals, 'stamp') or _locals._stamp == None:
-        _locals._stamp = int(time.time())
+      if not hasattr(self, 'stamp') or self._stamp == None:
+        self._stamp = int(time.time())
 
-      return _locals._stamp
+      return self._stamp
 
   def __setattr__(self, name, value):
-    if name == 'properties':
-      types.ModuleType.__setattr__(self, name, value)
-      return
-
-    if name in self.properties:
-      setattr(_locals, name, value)
-      return
-
     if name == 'time':
       # pylint: disable-msg=W0212
-      _locals._stamp = None
+      self._stamp = None
       return
 
-    types.ModuleType.__setattr__(self, name, value)
+    threading.local.__setattr__(self, name, value)
 
   def clean(self):
     self.user			= None

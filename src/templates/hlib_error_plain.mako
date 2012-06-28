@@ -32,6 +32,11 @@ Exception occured at ${error.file}:${error.line}
   % endif
   TID: ${hruntime.tid}
 
+  Runtime:
+  % for p in (list(hruntime.properties) + ['cache', 'time']):
+    ${p}: ${getattr(hruntime, p)}
+  % endfor
+
   Request headers:
   % for (name, value) in hruntime.request.headers.iteritems():
     ${name}: ${value.encode('ascii', 'replace')}

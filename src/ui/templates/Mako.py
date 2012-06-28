@@ -15,6 +15,10 @@ import mako.lookup
 import mako.template
 import os.path
 
+import threading
+
+render_lock = threading.RLock()
+
 class Template(hlib.ui.templates.Template):
   """
   Mako template class.
@@ -38,7 +42,8 @@ class Template(hlib.ui.templates.Template):
     return self
 
   def do_render(self):
-    return self.template.render(**self.params)
+    with render_lock:
+      return self.template.render(**self.params)
 
   @staticmethod
   def render_error():

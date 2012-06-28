@@ -55,3 +55,6 @@ def log_error(e):
 
   for c in hruntime.app.channels.error:
     c.log_error(e)
+
+def log_dbg(msg):
+  __log('%s - %s' % (hruntime.tid, msg), [hlib.config['log.channels.error']])

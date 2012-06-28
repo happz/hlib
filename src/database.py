@@ -11,6 +11,7 @@ import ZODB.POSException
 import transaction
 import BTrees
 import persistent
+import ZODB.ActivityMonitor
 
 import hlib
 import hlib.error
@@ -71,16 +72,40 @@ class DBAddress(object):
       return self.fields[self._fields[name]]
 
 class DB(object):
-  def __init__(self, address):
+  def __init__(self, name, address, **kwargs):
     super(DB, self).__init__()
 
+    self.name		= name
     self.address	= address
     self.db		= None
     self.root		= None
 
+    self.kwargs		= kwargs
+
+    self.stats_name	= 'Database (%s)' % self.name
+
+    import hlib.stats
+    hlib.stats.init_namespace(self.stats_name, {
+      'Loads':		0,
+      'Stores':		0,
+      'Connections':	{},
+      'Caches':		{}
+    })
+
+    hlib.event.Hook('engine.ThreadFinished', 'hlib.database.DB(%s)' % self.name, self.on_thread_finished)
+    hlib.event.Hook('engine.RequestFinished', 'hlib.database.DB(%s)' % self.name, self.on_request_finished)
+
+  def on_thread_finished(self, e):
+    self.update_stats()
+
+  def on_request_finished(self, e):
+    self.update_stats()
+
   def open(self):
     storage = storage_classes[self.address.storage].open(self.address)
-    self.db = ZODB.DB(storage)
+    self.db = ZODB.DB(storage, pool_size = 15, **self.kwargs)
+
+    self.db.setActivityMonitor(ZODB.ActivityMonitor.ActivityMonitor())
 
   def connect(self):
     connection = self.db.open()
@@ -111,6 +136,35 @@ class DB(object):
 
   def rollback(self):
     transaction.abort()
+
+  def update_stats(self):
+    data = self.db.getActivityMonitor().getActivityAnalysis(divisions = 1)[0]
+
+    st = {}
+    st['Loads']			= data['loads']
+    st['Stores']		= data['stores']
+
+    st['Connections']		= {}
+    st['Caches']		= {}
+
+    i = 0
+    for data in self.db.connectionDebugInfo():
+      st['Connections'][i] = {
+        'Opened':		data['opened'],
+        'Info':			data['info'],
+        'Before':		data['before']
+      }
+
+    for data in self.db.cacheDetailSize():
+      d = {
+        'Non-ghost size':	data['ngsize'],
+        'Size':			data['size']
+      }
+
+      st['Caches'][data['connection']] = d
+
+    import hlib.stats
+    hlib.stats.swap_namespace('Database (%s)' % self.name, st)
 
 def abstract_method(obj = None):
   """

@@ -32,17 +32,17 @@ class Storage(UserDict.UserDict):
     self.__online	= None
     self.__online_ctime	= 0
 
-    from hlib.stats import stats as sd
-    from hlib.stats import stats_lock as sl
-
-    with sl:
-      sd['Sessions (%s)' % self.app.name] = {
-        'Active':		lambda s: ', '.join(self.online_users)
-      }
+    import hlib.stats
+    hlib.stats.init_namespace('Sessions (%s)' % self.app.name, {
+      'Active':		lambda s: ', '.join(self.online_users)
+    })
 
   @property
   def online_users(self):
     with self.lock:
+      if self.sessions == None:
+        return []
+
       if hruntime.time - self.__online_ctime > 60 or self.__online == None:
         self.__online = []
 

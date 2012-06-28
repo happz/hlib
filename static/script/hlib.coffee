@@ -304,6 +304,9 @@ String.prototype.format = () ->
   args = arguments;
   return @replace /\{(\d+)\}/g, (m, n) -> return args[n]
 
+String.prototype.capitalize = () ->
+  return @charAt(0).toUpperCase() + this.slice 1
+
 window.hlib.templates.info_dialog =
   error:        '
     <div class="formee-msg-error">
@@ -313,8 +316,8 @@ window.hlib.templates.info_dialog =
   working:      '
     <div class="formee-msg-info">
       <img src="/static/images/spinner.gif" alt="" class="ajax_spinner" />
-      <label>Your request is being processed by our hamsters.</label>
-      If it takes too long, poke our admins <a href="irc://ellen.czn.cz/osadnici">here</a>.
+      <label>{{#_g}}Your request is being processed by our hamsters.{{/_g}}</label>
+      {{#_g}}If it takes too long, poke our admins <a href="irc://ellen.czn.cz/osadnici">here</a>.{{/_g}}
     </div>'
   success:      '
     <div class="formee-msg-success">
@@ -325,9 +328,16 @@ window.hlib.templates.info_dialog =
 window.hlib.OPTS =		null
 window.hlib.INFO =		null
 
+window.hlib.trace = () ->
+  trace = printStackTrace()
+  console.log trace.join '\n'
+
 window.hlib._g = (s) ->
   if window.settlers.i18n and window.settlers.i18n.tokens and window.settlers.i18n.tokens.hasOwnProperty s
     return window.settlers.i18n.tokens[s]
+
+  console.log 'Unknown token: ' + s
+  window.hlib.trace()
   return s
 
 window.hlib.disable = (fid) ->
@@ -391,6 +401,10 @@ window.hlib.setTitle = (msg) ->
   document.title = msg
 
 window.hlib.render = (tmpl, data) ->
+  data._g = () ->
+    (token) ->
+      window.hlib._g token
+
   Mustache.to_html(tmpl, data)
 
 window.hlib.get_handler = (table_parent, handler_name, defaults) ->

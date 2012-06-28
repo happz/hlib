@@ -10,6 +10,7 @@ __license__             = 'http://www.php-suit.com/dpl'
 import Queue
 import socket
 import time
+import thread
 import threading
 import SocketServer
 import urllib
@@ -192,10 +193,67 @@ class ThreadPool(object):
     self.limit		= limit
     self.server		= server
 
-    self.lock		= threading.Lock()
+    self.lock		= threading.RLock()
     self.current_count	= 0
     self.free_count	= 0
     self.queue		= Queue.Queue()
+
+    self.threads	= {}
+
+    self.stats_name	= 'Pool (%s)' % self.server.name
+
+    hlib.event.Hook('engine.ThreadStarted', 'hlib.server.ThreadPool(%s)' % self.server.name, self.on_thread_start)
+    hlib.event.Hook('engine.ThreadFinished', 'hlib.server.ThreadPool(%s)' % self.server.name, self.on_thread_finished)
+    hlib.event.Hook('engine.RequestConnected', 'hlib.server.ThreadPool(%s)' % self.server.name, self.on_request_connected)
+    hlib.event.Hook('engine.RequestFinished',  'hlib.server.ThreadPool(%s)' % self.server.name, self.on_request_finished)
+
+  # Event handlers
+  def on_thread_start(self, e):
+    hruntime.tid = threading.current_thread().name
+
+    d = {
+      'Start time':			time.time(),
+      'Uptime':				lambda s: time.time() - s['Start time'],
+
+      'Total bytes read':		0,
+      'Total bytes written':		0,
+      'Total requests':			0,
+      'Total time':			0
+    }
+
+    from hlib.stats import stats, stats_lock
+
+    with stats_lock:
+      stats[self.stats_name]['Threads'][hruntime.tid] = d
+
+      stats[self.stats_name]['Total threads started'] += 1
+
+  def on_thread_finished(self, e):
+    from hlib.stats import stats, stats_lock
+
+    with stats_lock:
+      del stats[self.stats_name]['Threads'][hruntime.tid]
+
+      stats[self.stats_name]['Total threads finished'] += 1
+
+  def on_request_connected(self, e):
+    from hlib.stats import stats, stats_lock
+
+    with stats_lock:
+      stats[self.stats_name]['Threads'][hruntime.tid]['Total requests'] += 1
+
+  def on_request_finished(self, e):
+    from hlib.stats import stats, stats_lock
+
+    # pylint: disable-msg=W0613
+    with stats_lock:
+      d = stats[self.stats_name]['Threads'][hruntime.tid]
+      ri = hruntime.request
+      ro = hruntime.response
+
+      d['Total bytes read']		+= ri.read_bytes
+      d['Total bytes written']		+= ri.written_bytes
+      d['Total time']			+= (time.time() - ri.ctime)
 
   def get_request(self):
     """
@@ -236,21 +294,59 @@ class ThreadPool(object):
 
     with self.lock:
       if self.free_count == 0 and self.current_count < self.limit:
-        t = threading.Thread(target = self.server.process_request_thread, args = (self,))
-        t.setDaemon(1)
-        t.start()
-
-        self.current_count += 1
-        self.free_count += 1
+        self.add_thread()
 
     self.queue.put((request, client_address))
+
+  def add_thread(self):
+    with self.lock:
+      t = threading.Thread(target = self.server.process_request_thread, name = 'worker-' + str(self.current_count + 1), args = (self,))
+      t.setDaemon(1)
+      t.start()
+
+      self.threads[t.name] = t
+
+      self.current_count += 1
+      self.free_count += 1
+
+  def remove_thread(self):
+    with self.lock:
+      del self.threads[hruntime.tid]
+
+  def init_stats(self):
+    import hlib.stats
+    hlib.stats.init_namespace('Pool (%s)' % self.server.name, {
+      'Queue size':		lambda s: self.queue.qsize(),
+      'Current threads':	lambda s: self.current_count,
+      'Free threads':		lambda s: self.free_count,
+
+      'Total threads started':	0,
+      'Total threads finished':	0,
+
+      'Threads':		{}
+    })
+
+  def start(self):
+    self.init_stats()
+
+  def stop(self):
+    with self.lock:
+      for i in range(0, self.current_count):
+        self.queue.put(None)
+
+    sleep = True
+    while sleep:
+      with self.lock:
+        if len(self.threads) <= 0:
+          sleep = False
+          time.sleep(0)
 
 class Server(SocketServer.TCPServer):
   """
   This class represents one HTTP server.
   """
 
-  def __init__(self, config, *args, **kwargs):
+  def __init__(self, name, config, *args, **kwargs):
     """
     Instantiate Server object. Setup server properties, prepare sockets, etc... Pass C{args} and C{kwargs} to parenting class, these include server' bind address and port, and request handler class.
 
@@ -259,6 +355,7 @@ class Server(SocketServer.TCPServer):
     @see:			http://docs.python.org/library/socketserver.html#asynchronous-mixins
     """
 
+    self.name			= name
     self.config			= config
     self.server_thread		= None
     self.allow_reuse_address	= True
@@ -267,6 +364,8 @@ class Server(SocketServer.TCPServer):
 
     self.pool			= ThreadPool(self, limit = self.config.get('pool.max', 10))
     self.app			= config['app']
+
+    self.shutting_down		= False
 
   @staticmethod
   def default_config():
@@ -296,6 +395,10 @@ class Server(SocketServer.TCPServer):
 
     while True:
       args = pool.get_request()
+
+      if args == None:
+        break
+
       request, client_address = args
 
       try:
@@ -303,7 +406,10 @@ class Server(SocketServer.TCPServer):
         self.shutdown_request(request)
 
       # pylint: disable-msg=W0703
-      except Exception:
+      except Exception, e:
+        e = hlib.error.error_from_exception(e)
+        hlib.log.log_error(e)
+
         self.handle_error(request, client_address)
         self.shutdown_request(request)
 
@@ -311,6 +417,7 @@ class Server(SocketServer.TCPServer):
         pool.finish_request()
 
     hlib.event.trigger('engine.ThreadFinished', None, server = self)
+    pool.remove_thread()
 
   def process_request(self, request, client_address):
     """
@@ -322,6 +429,9 @@ class Server(SocketServer.TCPServer):
     @param client_address:	Tuple (C{string}, C{int}) of client' IP address, client' IP port.
     """
 
+    if self.shutting_down:
+      return
+
     self.pool.add_request(request, client_address)
 
   def start(self):
@@ -329,6 +439,14 @@ class Server(SocketServer.TCPServer):
     Begin listening on IP port and start accepting requests. Do it in separate (daemon) thread so we can return command to our caller.
     """
 
+    self.pool.start()
+
     self.server_thread = threading.Thread(target = self.serve_forever, kwargs  = {'poll_interval': 5})
     self.server_thread.daemon = True
     self.server_thread.start()
+
+  def stop(self):
+    self.shutting_down = True
+
+    self.shutdown()
+    self.pool.stop()
