@@ -111,7 +111,7 @@ class HeaderMap(UserDict.UserDict):
   """
   Dictionary-like object storing HTTP headers and their values.
 
-  All header names are converted to first-letter-capitalized format on all operations (get/set/delete). Used by L{hruntime.request} and L{hruntime.response}.
+  All header names are converted to first-letter-capitalized format on all operations (get/set/delete). Used by L{hlib.engine.Request} and L{hlib.engine.Response}.
 
   @todo:			Support more than 1 header simultaneously (for Cookie header, etc.)
   """

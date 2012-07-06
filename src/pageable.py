@@ -13,30 +13,25 @@ import hlib.input
 class ValidatePage(hlib.input.SchemaValidator):
   """
   Input validator
-  """
 
-  start  = hlib.input.validator_factory(hlib.input.NotEmpty, hlib.input.Int)
-  """
   @ivar start:    Starting offset of requested page
   @type start:    L{hlib.input.Validator}
-  """
-
-  length = hlib.input.validator_factory(hlib.input.NotEmpty, hlib.input.Int)
-  """
   @ivar length:    Number of items on requested page
   @type length:    L{hlib.input.Validator}
   """
+  start  = hlib.input.validator_factory(hlib.input.NotEmpty, hlib.input.Int)
+  length = hlib.input.validator_factory(hlib.input.NotEmpty, hlib.input.Int)
 
 class Page(hlib.api.ApiJSON):
   """
   List of items on one page.
 
-  @ivar cnt_total: Number of items that are available.
-  @type cnt_total: C{int}
+  @ivar cnt_total:   Number of items that are available.
+  @type cnt_total:   C{int}
   @ivar cnt_display: Number of records in current page.
   @type cnt_display: C{int}
-  @ivar records: list of items in current page.
-  @type records: C{list}
+  @ivar records:     list of items in current page.
+  @type records:     C{list}
   """
 
   def __init__(self):
@@ -52,9 +47,8 @@ class Pageable(object):
     Object used to get pages of items from any resource. Use as a parent of custom class,
     and implement L{record_to_api} and L{get_records} methods.
 
-    @ivar default_length: Number of items of requested page, when L{Pageable.get_page} is called without C{length} specified.
+    @param default_length: Number of items of requested page, when L{Pageable.get_page} is called without C{length} specified.
     @type default_length: C{int}
-    @default default_length: 20
     """
 
     super(Pageable, self).__init__()

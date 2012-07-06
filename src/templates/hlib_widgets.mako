@@ -127,7 +127,7 @@
   %>
 </%def>
 
-<%def name="w_form_label(label, required = False, append_colon = True)">
+<%def name="w_form_label(label, required = False, append_colon = False)" >
   ${w_helper_label(label, required = required, append_colon = append_colon)}
 </%def>
 
