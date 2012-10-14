@@ -1,4 +1,4 @@
-ROOT_DIR="/data/hlib/"
+ROOT_DIR="/data/settlers/hlib/"
 
 DOC_DIR="$ROOT_DIR/doc/"
 CONF_DIR="$ROOT_DIR/conf/"

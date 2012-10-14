@@ -337,7 +337,7 @@ window.hlib._g = (s) ->
     return window.settlers.i18n.tokens[s]
 
   console.log 'Unknown token: ' + s
-  window.hlib.trace()
+#  window.hlib.trace()
   return s
 
 window.hlib.disable = (fid) ->
