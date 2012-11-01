@@ -10,6 +10,7 @@ __contact__		= 'happz@happz.cz'
 __license__		= 'http://www.php-suit.com/dpl'
 __version__		= '3.0-rc1'
 
+import ConfigParser
 import os.path
 import random
 import sys
@@ -55,6 +56,24 @@ PATH = os.path.dirname(__file__)
 
 def url(path = None):
   return 'http://' + hruntime.request.base + path
+
+class ConfigFile(ConfigParser.ConfigParser):
+  def __init__(self, default = None):
+    ConfigParser.ConfigParser.__init__(self)
+
+    self.default = default or {}
+
+  def get(self, section, option):
+    if self.has_option(section, option):
+      return ConfigParser.ConfigParser.get(self, section, option)
+
+    if section not in self.default:
+      raise ConfigParser.NoSectionError(section)
+
+    if option not in self.default[section]:
+      raise ConfigParser.NoOptionError(section, option)
+
+    return self.default[section][option]
 
 class Runtime(threading.local):
   """
