@@ -14,9 +14,9 @@ class window.hlib.Info
 
   _setup: (tmpl, data, cls, opts) ->
     $(@eid).dialog
-      closeText:	'Close'
+      closeText:	''
       autoOpen:		false
-      height:		150
+      height:		250
       modal:		true
 
     if opts?
@@ -76,6 +76,8 @@ class window.hlib.Ajax
       opts.data = {}
     if not opts.hasOwnProperty 'keep_focus'
       opts.keep_focus = false
+    if not opts.hasOwnProperty 'show_spinner'
+      opts.show_spinner = true
 
     focus_elements = $(document.activeElement)
 
@@ -94,7 +96,8 @@ class window.hlib.Ajax
           window.hlib.INFO.error 'Server unavailable'
 
       beforeSend:	() ->
-        window.hlib.INFO.working()
+        if opts.show_spinner == true
+          window.hlib.INFO.working()
 
       success:		(response) ->
         handler_name = 'h' + response.status
@@ -111,6 +114,11 @@ class window.hlib.Ajax
         window.hlib.INFO.error 'No handler for response status ' + response.status
 
       error:		(request, msg, e) ->
+        h = window.hlib.get_handler opts, 'error', window.hlib.ajax_default_handlers
+        if h
+          h response, _ajax
+          return
+
         console.log 'error called', e
         window.hlib.INFO.error msg
 

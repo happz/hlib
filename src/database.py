@@ -92,6 +92,7 @@ class DB(object):
       'Caches':		{}
     })
 
+    import hlib.event
     hlib.event.Hook('engine.ThreadFinished', 'hlib.database.DB(%s)' % self.name, self.on_thread_finished)
     hlib.event.Hook('engine.RequestFinished', 'hlib.database.DB(%s)' % self.name, self.on_request_finished)
 

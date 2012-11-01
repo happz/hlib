@@ -34,7 +34,7 @@ def init_env(config_file):
   hlib.config['log.channels.error'] = stderr
 
   db_address = hlib.database.DBAddress(config.get('database', 'address'))
-  db = hlib.database.DB(db_address)
+  db = hlib.database.DB('main db', db_address)
   db.open()
 
   app_config                    = hlib.engine.Application.default_config(config.get('server', 'path'))

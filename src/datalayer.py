@@ -63,7 +63,7 @@ class User(DBObject):
   def __init__(self, name, password, email):
     DBObject.__init__(self)
 
-    self.name     = unicode(name)
+    self.name		= unicode(name)
     self.password	= unicode(password)
     self.admin		= False
     self.date_format = '%d/%m/%Y %H:%M:%S'
@@ -73,6 +73,18 @@ class User(DBObject):
     self.cookies	= hlib.database.SimpleMapping()
 
     self.events		= hlib.database.IndexedMapping()
+
+  def __eq__(self, other):
+    if not isinstance(other, User):
+      return False
+
+    return self.name == other.name
+
+  def __ne__(self, other):
+    if not isinstance(other, User):
+      return True
+
+    return self.name != other.name
 
   def __setstate__(self, d):
     # FIXME

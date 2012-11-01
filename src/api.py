@@ -10,6 +10,7 @@ __license__             = 'http://www.php-suit.com/dpl'
 import json
 import sys
 import traceback
+import types
 
 import hlib.error
 import hlib.handlers
@@ -43,6 +44,9 @@ class ApiJSON(object):
     self.API_FIELDS = []
 
     self.update(fields)
+
+  def __str__(self):
+    return '\n'.join(['%s: %s' % (f, type(getattr(self, f))) for f in self.API_FIELDS])
 
   def update(self, fields):
     self.API_FIELDS += fields
@@ -147,7 +151,13 @@ def run_api_handler():
     if r == None:
       r = Reply(200)
 
-    return r.dump()
+    if hasattr(r, 'dump'):
+      return r.dump()
+
+    if type(r) == types.DictType:
+      return Raw(r).dump()
+
+    raise hlib.error.InvalidOutputError()
 
   except hlib.http.Redirect, e:
     raise e

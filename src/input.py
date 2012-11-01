@@ -28,6 +28,7 @@ def validator_factory(*validators):
       _kwargs['validators'] = list(validators)
       super(PrivateValidator, self).__init__(*_args, **_kwargs)
 
+  PrivateValidator.if_missing = formencode.api.NoDefault
   return PrivateValidator
 
 def validator_optional(validator):

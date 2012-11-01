@@ -167,3 +167,9 @@ class InconsistencyError(BaseError):
     kwargs['reply_status']	= 402
 
     super(InconsistencyError, self).__init__(**kwargs)
+
+class InvalidOutputError(BaseError):
+  def __init__(self, **kwargs):
+    kwargs['reply_status']	= 500
+
+    super(InvalidOutputError, self).__init__(**kwargs)

@@ -26,12 +26,12 @@ def make_record(message, params = None, level = None):
 
   return logging.makeLogRecord(params)
 
-def __log(msg, channels):
+def log_msg(msg, channels):
   for c in channels:
     c.log_message(msg)
 
-def log_access():
-  params = {
+def log_params():
+  return {
     'tid':			hruntime.tid,
     'stamp':			hruntime.localtime,
     'date':			time.strftime('%d/%m/%Y', hruntime.localtime),
@@ -44,7 +44,10 @@ def log_access():
     'response_length':		hruntime.response.output_length != None and hruntime.response.output_length or 0,
   }
 
-  __log(hruntime.app.config['log.access.format'].format(**params), hruntime.app.channels.access)
+def log_access():
+  params = log_params()
+
+  log_msg(hruntime.app.config['log.access.format'].format(**params), hruntime.app.channels.access)
 
 def log_error(e):
   if e.dont_log == True:
@@ -57,4 +60,4 @@ def log_error(e):
     c.log_error(e)
 
 def log_dbg(msg):
-  __log('%s - %s' % (hruntime.tid, msg), [hlib.config['log.channels.error']])
+  log_msg('%s - %s' % (hruntime.tid, msg), [hlib.config['log.channels.error']])
