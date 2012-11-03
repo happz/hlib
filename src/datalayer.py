@@ -86,6 +86,12 @@ class User(DBObject):
 
     return self.name != other.name
 
+  def __cmp__(self, other):
+    return cmp(self.name, other.name)
+
+  def __hash__(self):
+    return hash(self.name)
+
   def __setstate__(self, d):
     # FIXME
     self.__dict__ = d
