@@ -17,6 +17,56 @@ __all__ = ['tag_fn', 'prohibited', 'require_login', 'require_admin', 'require_wr
            'page',
            'GenericHandler']
 
+class IORegime(object):
+  @staticmethod
+  def check_session():
+    return
+
+  @staticmethod
+  def run_handler():
+    return
+
+  @staticmethod
+  def redirect(url):
+    return
+
+class PageIORegime(object):
+  @staticmethod
+  def check_session():
+    hlib.auth.check_session()
+
+  @staticmethod
+  def run_handler():
+    hruntime.response.headers['Content-Type'] = 'text/html; charset=utf-8'
+
+    try:
+      hlib.input.validate()
+
+      return hruntime.request.handler(**hruntime.request.params)
+
+    except hlib.http.Redirect, e:
+      hruntime.dont_commit = True
+      raise e
+
+    except Exception, e:
+      hruntime.dont_commit = True
+
+      e = hlib.error.error_from_exception(e)
+      hlib.log.log_error(e)
+
+    return ''
+
+  @staticmethod
+  def redirect(url):
+    res = hruntime.response
+
+    res.status = 301
+    res.output = None
+    res.headers['Location'] = url
+
+    if 'Content-Type' in res.headers:
+      del res.headers['Content-Type']
+
 def tag_fn_prep(fn):
   if not hasattr(fn, 'config'):
     setattr(fn, 'config', dict())
@@ -35,38 +85,12 @@ def tag_fn_check(fn, tag, default):
 
   return fn.config.get(tag, default)
 
-def prohibited(f):
-  return tag_fn(f, 'prohibited', True)
+prohibited			= lambda f: tag_fn(f, 'prohibited', True)
+require_login			= lambda f: tag_fn(f, 'require_login', True)
+require_admin			= lambda f: tag_fn(f, 'require_admin', True)
+require_write			= lambda f: tag_fn(f, 'require_write', True)
 
-def require_login(fn):
-  return tag_fn(fn, 'require_login', True)
-
-def require_admin(f):
-  return tag_fn(f, 'require_admin', True)
-
-def require_write(f):
-  return tag_fn(f, 'require_write', True)
-
-def page(fn):
-  return tag_fn(fn, 'page', True)
-
-def run_page_handler():
-  try:
-    hlib.input.validate()
-
-    return hruntime.request.handler(**hruntime.request.params)
-
-  except hlib.http.Redirect, e:
-    hruntime.dont_commit = True
-    raise e
-
-  except Exception, e:
-    hruntime.dont_commit = True
-
-    e = hlib.error.error_from_exception(e)
-    hlib.log.log_error(e)
-
-    return ''
+page				= lambda f: tag_fn(f, 'ioregime', PageIORegime)
 
 def enable_write():
   require_write(hruntime.request.handler)

@@ -11,6 +11,7 @@ import hlib.datalayer
 import hlib.event
 import hlib.http
 import hlib.http.session
+import hlib.input
 
 # pylint: disable-msg=F0401
 import hruntime

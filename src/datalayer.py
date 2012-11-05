@@ -74,6 +74,8 @@ class User(DBObject):
 
     self.events		= hlib.database.IndexedMapping()
 
+    self.api_tokens	= hlib.database.SimpleList()
+
   def __eq__(self, other):
     if not isinstance(other, User):
       return False
@@ -99,6 +101,9 @@ class User(DBObject):
     if 'maintenance_access' not in d:
       self.maintenance_access = False
 
+    if 'api_tokens' not in d:
+      self.api_tokens = hlib.database.SimpleList()
+
   def __getattr__(self, name):
     if name == 'is_admin':
       return self.admin == True
@@ -107,3 +112,6 @@ class User(DBObject):
       return self.name in hruntime.app.sessions.online_users
 
     raise AttributeError(name)
+
+  def reset_api_tokens(self):
+    self.api_tokens = hlib.database.SimpleList()

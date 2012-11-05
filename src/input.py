@@ -57,6 +57,9 @@ def validate(schema = None, params = None, update_request = True):
   schema = schema()
 
   if not params:
+    if hruntime.request.params_valid == True:
+      return
+
     params = hruntime.request.params
 
   try:
@@ -79,5 +82,6 @@ def validate(schema = None, params = None, update_request = True):
 
   if update_request == True:
     hruntime.request.params.update(params)
+    hruntime.request.params_valid = True
 
   return params

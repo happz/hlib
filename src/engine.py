@@ -63,6 +63,8 @@ class Application(object):
 
     self.sessions		= None
 
+    self.api_tokens		= hlib.api.ApiTokenCache(self.name, self)
+
   @staticmethod
   def default_config(app_path):
     c = {}
@@ -144,8 +146,11 @@ class Request(object):
     self.http_version   = None
     self.method         = None
     self.params         = {}
+    self.params_valid	= False
     self.requested      = None
     self.requested_line	= None
+
+    self.api_token	= None
 
     self.ctime		= time.time()
     self.read_bytes	= 0
@@ -276,8 +281,6 @@ class Response(object):
 
     self.output			= None
     self.raw_output		= None
-
-    self.headers['Content-Type'] = 'text/html; charset=utf-8'
 
   def __getattr__(self, name):
     if name == 'output':
@@ -477,7 +480,11 @@ class Engine(object):
     req = hruntime.request
 
     if req.requires_login:
-      hlib.auth.check_session()
+      io_regime = hlib.handlers.tag_fn_check(req.handler, 'ioregime', None)
+      if not io_regime:
+        raise hlib.http.Prohibited()
+
+      io_regime.check_session()
 
     if req.is_prohibited:
       hruntime.dont_commit = True

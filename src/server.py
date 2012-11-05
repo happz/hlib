@@ -17,7 +17,6 @@ import urllib
 import UserDict
 
 import hlib
-import hlib.api
 import hlib.engine
 import hlib.error
 import hlib.event
@@ -28,12 +27,6 @@ import hlib.http
 import hruntime
 
 __all__ = []
-
-class Redirect(hlib.api.ApiJSON):
-  def __init__(self, url):
-    super(Redirect, self).__init__(['url'])
-
-    self.url = url
 
 class RequestHandler(SocketServer.BaseRequestHandler):
   """
@@ -110,15 +103,18 @@ class RequestHandler(SocketServer.BaseRequestHandler):
         __fail(404)
         break
 
-      api_mode = hlib.handlers.tag_fn_check(req.handler, 'api', False)
+      io_regime = hlib.handlers.tag_fn_check(req.handler, 'ioregime', None)
 
       try:
         hlib.event.trigger('engine.RequestStarted', None)
 
-        if api_mode:
-          res.output = hlib.api.run_api_handler()
-        else:
-          res.output = hlib.handlers.run_page_handler()
+        if not io_regime:
+          raise hlib.http.UnknownMethod()
+
+        res.output = io_regime.run_handler()
+
+      except hlib.http.Prohibited:
+        __fail(403)
 
       except hlib.http.NotFound:
         __fail(404)
@@ -134,20 +130,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 
         url += e.location
 
-        if api_mode:
-          reply = hlib.api.Reply(303, redirect = Redirect(url))
-          reply.status = 303
-
-          res.status = 200
-          res.output = reply.dump()
-
-        else:
-          __fail(303)
-
-          res.headers['Location'] = url
-
-          if 'Content-Type' in res.headers:
-            del res.headers['Content-Type']
+        io_regime.redirect(url)
 
       except hlib.error.BaseError, e:
         hlib.log.log_error(e)

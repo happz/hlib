@@ -7,24 +7,98 @@ __copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
 __contact__             = 'happz@happz.cz'
 __license__             = 'http://www.php-suit.com/dpl'
 
+import hashlib
 import json
 import sys
+import threading
 import traceback
 import types
 
 import hlib.error
 import hlib.handlers
 import hlib.http
+import hlib.http.session
+import hlib.input
 import hlib.log
 import hlib.server
 
 # pylint: disable-msg=F0401
 import hruntime
 
+API_TOKEN_LENGTH = 32
+
 PASSWORD_FIELD_FILTERS = [
   lambda s: s.startswith('password')
 ]
 
+class ApiIORegime(hlib.handlers.IORegime):
+  @staticmethod
+  def check_session():
+    hlib.handlers.PageIORegime.check_session()
+
+  @staticmethod
+  def run_handler():
+    hruntime.response.headers['Content-Type'] = 'application/json'
+
+    try:
+      hlib.input.validate()
+
+      r = hruntime.request.handler(**hruntime.request.params)
+
+      if r == None:
+        r = Reply(200)
+
+      if hasattr(r, 'dump'):
+        return r.dump()
+
+      if type(r) == types.DictType:
+        return Raw(r).dump()
+
+      raise hlib.error.InvalidOutputError()
+
+    except hlib.http.Redirect, e:
+      raise e
+
+    except Exception, e:
+      hruntime.dont_commit = True
+
+      e = hlib.error.error_from_exception(e)
+      hlib.log.log_error(e)
+
+      kwargs = e.args_for_reply()
+      return Reply(e.reply_status, error = Error(e), **kwargs).dump()
+
+  @staticmethod
+  def redirect(url):
+    res = hruntime.response
+
+    reply = Reply(303, redirect = Redirect(url))
+
+    res.status = 200
+    res.output = reply.dump()
+
+class ApiTokenIORegime(ApiIORegime):
+  @staticmethod
+  def check_session():
+    hlib.input.validate(schema = hlib.api.ValidateAPIToken)
+
+    token = hruntime.request.params['api_token']
+
+    try:
+      hruntime.user = hruntime.app.api_tokens[token]
+
+      hruntime.request.api_token = token
+      del hruntime.request.params['api_token']
+
+    except KeyError:
+      raise hlib.http.Prohibited()
+
+api				= lambda f: hlib.handlers.tag_fn(f, 'ioregime', ApiIORegime)
+api_token			= lambda f: hlib.handlers.tag_fn(f, 'ioregime', ApiTokenIORegime)
+
+#
+# Encoders
+#
 class JSONEncoder(json.JSONEncoder):
   """
   Our custom JSON encoder, able to encode L{hlib.api.ApiJSON} objects.
@@ -55,8 +129,6 @@ class ApiJSON(object):
       setattr(self, f, None)
 
   def dump(self, o = None, **kwargs):
-    hruntime.response.headers['Content-Type'] = 'application/json'
-
     return json.dumps(o or self, cls = JSONEncoder, **kwargs)
 
 class Error(ApiJSON):
@@ -134,39 +206,43 @@ class Raw(ApiJSON):
   def dump(self):
     return super(Raw, self).dump(o = self.data)
 
-api = lambda f: hlib.handlers.tag_fn(f, 'api', True)
-"""
-Decorate handler as serving JSON API responses.
+class Redirect(ApiJSON):
+  def __init__(self, url):
+    super(Redirect, self).__init__(['url'])
 
-@type f:			C{Callable}
-@param f:			C{Function} to decorate.
-"""
+    self.url = url
 
-def run_api_handler():
-  try:
-    hlib.input.validate()
+#
+# API Tokens
+#
+class ValidateAPIToken(hlib.input.SchemaValidator):
+  api_token = hlib.input.validator_factory(hlib.input.CommonString(), hlib.input.MinLength(32 + API_TOKEN_LENGTH), hlib.input.MaxLength(32 + API_TOKEN_LENGTH))
 
-    r = hruntime.request.handler(**hruntime.request.params)
+class ApiTokenCache(object):
+  def __init__(self, name, app):
+    super(ApiTokenCache, self).__init__()
 
-    if r == None:
-      r = Reply(200)
+    self.name			= name
+    self.app			= app
 
-    if hasattr(r, 'dump'):
-      return r.dump()
+    self.lock = threading.Lock()
+    self.token_to_user = {}
 
-    if type(r) == types.DictType:
-      return Raw(r).dump()
+  def __getitem__(self, key):
+    with self.lock:
+      if key in self.token_to_user:
+        return self.token_to_user[key]
 
-    raise hlib.error.InvalidOutputError()
+      for user in hruntime.dbroot.users.values():
+        if key in user.api_tokens:
+          self.token_to_user[key] = user
+          return user
 
-  except hlib.http.Redirect, e:
-    raise e
+      raise KeyError(key)
 
-  except Exception, e:
-    hruntime.dont_commit = True
+  def __contains__(self, key):
+    with self.lock:
+      return key in self.token_to_user
 
-    e = hlib.error.error_from_exception(e)
-    hlib.log.log_error(e)
-
-    kwargs = e.args_for_reply()
-    return Reply(e.reply_status, error = Error(e), **kwargs).dump()
+def api_token_generate(user):
+  return hashlib.md5(user.name.encode('ascii', 'replace')).hexdigest() + hlib.http.session.gen_rand_string(API_TOKEN_LENGTH)
