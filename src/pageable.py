@@ -55,19 +55,6 @@ class Pageable(object):
 
     self.default_length = default_length if default_length != None else 20
 
-  def record_to_api(self, record):
-    """
-    Return dictionary that can be encoded to JSON and send in API reply.
-
-    @param record: Object to encode.
-    @type record: L{object} instance
-    @return: Serialized C{record} data
-    @rtype: C{dict}
-    """
-
-    # pylint: disable-msg=W0613
-    return None
-
   def get_records(self, start, length):
     """
     Return list of records.
@@ -103,7 +90,7 @@ class Pageable(object):
     records, cnt_total = self.get_records(start, length)
 
     for record in records:
-      reply.records.append(self.record_to_api(record))
+      reply.records.append(record.to_api())
 
     reply.cnt_total = cnt_total
     reply.cnt_display = len(records)
