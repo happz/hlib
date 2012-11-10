@@ -32,18 +32,11 @@ class Server(DBObject):
     self.events			= hlib.database.IndexedMapping()
     self.maintenance_mode	= False
 
-  def __setstate__(self, d):
-    # FIXME
-    self.__dict__ = d
-
-    if 'maintenance_mode' not in d:
-      self.maintenance_mode = False
-
   def __getattr__(self, name):
     if name == 'online_users':
       return hruntime.app.sessions.online_users
 
-    raise AttributeError(name)
+    return DBObject.__getattr__(self, name)
 
 class Event(DBObject):
   def __init__(self, stamp, hidden):
@@ -94,16 +87,6 @@ class User(DBObject):
   def __hash__(self):
     return hash(self.name)
 
-  def __setstate__(self, d):
-    # FIXME
-    self.__dict__ = d
-
-    if 'maintenance_access' not in d:
-      self.maintenance_access = False
-
-    if 'api_tokens' not in d:
-      self.api_tokens = hlib.database.SimpleList()
-
   def __getattr__(self, name):
     if name == 'is_admin':
       return self.admin == True
@@ -111,7 +94,7 @@ class User(DBObject):
     if name == 'is_online':
       return self.name in hruntime.app.sessions.online_users
 
-    raise AttributeError(name)
+    return DBObject.__getattr__(self, name)
 
   def reset_api_tokens(self):
     self.api_tokens = hlib.database.SimpleList()
