@@ -123,7 +123,7 @@ class window.hlib.Ajax
         window.hlib.INFO.error msg
 
 class window.hlib.Pager
-  constructor:		(opts) ->
+  constructor:		(@opts) ->
     _pager = @
 
     @id_prefix	= opts.id_prefix
@@ -134,6 +134,7 @@ class window.hlib.Pager
 
     @start	= opts.start
     @length	= opts.length
+
     @items	= null
 
     $(@eid + ' span.' + @id_prefix + '-first').click () ->
@@ -172,6 +173,9 @@ class window.hlib.Pager
           $(_pager.eid + ' tbody').append window.hlib.render _pager.template, record for record in response.page.records
 
           $(_pager.eid + ' span.' + _pager.id_prefix + '-position').html '' + (_pager.start + 1) + '. - ' + (Math.min _pager.items, _pager.start + response.page.cnt_display) + '. z ' + _pager.items
+
+          if _pager.opts.hasOwnProperty 'after_refresh'
+            _pager.opts.after_refresh response, _pager
 
           window.hlib.INFO._hide()
 
@@ -235,9 +239,7 @@ class window.hlib.Form
   clear:		() ->
     $(@field_id name).val '' for name in @opts.clear_fields
 
-  constructor: (opts) ->
-    @opts = opts
-
+  constructor: (@opts) ->
     @fid = '#' + opts.fid + '_form'
     @info = new FormInfo(@)
 
@@ -250,9 +252,10 @@ class window.hlib.Form
     if not opts.hasOwnProperty 'submit_empty'
       opts.submit_empty = false
 
+    @opts = opts
     _form = @
 
-    $(@fid).ajaxForm
+    @form_opts =
       dataType:		'json'
       success:	(response) ->
         window.hlib.INFO._hide()
@@ -283,12 +286,17 @@ class window.hlib.Form
         window.hlib.INFO.working()
         return true
 
+    $(@fid).ajaxForm @form_opts
+
     @clear()
 
     if opts.hasOwnProperty 'focus'
       $(@field_id opts.focus).focus()
 
     (@field f).disable() for f in opts.disable_fields
+
+  submit:		() ->
+    $(@fid).ajaxSubmit @form_opts
 
   field_id:		(name) ->
     '#' + @opts.fid + '_' + name
