@@ -143,8 +143,8 @@
   <input class="right" type="button" title="${_(label)}" value="${_(label)}" ${w_helper_id(id)} />
 </%def>
 
-<%def name="w_submit_row(label, classes = None)">
+<%def name="w_submit_row(label, classes = None, id = None)">
   <div ${w_helper_class(classes, append = ['grid-12-12'])}>
-    ${w_submit_button(label)}
+    ${w_submit_button(label, id = id)}
   </div>
 </%def>
