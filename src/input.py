@@ -5,7 +5,7 @@ import formencode.api
 import formencode.compound
 
 from formencode import FancyValidator as Validator
-from formencode.validators import NotEmpty, UnicodeString, MinLength, MaxLength, OneOf, FieldsMatch, Int, Email, StringBool, ConfirmType
+from formencode.validators import NotEmpty, UnicodeString, MinLength, MaxLength, OneOf, FieldsMatch, Int, Email, StringBool, ConfirmType, Bool
 from formencode.compound import Pipe, Any, All
 from formencode.schema import Schema
 
