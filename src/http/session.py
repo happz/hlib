@@ -1,6 +1,5 @@
 import cPickle
 import hashlib
-import pprint
 import random
 # pylint: disable-msg=W0402
 import string
@@ -47,7 +46,7 @@ class Storage(UserDict.UserDict):
         self.__online = []
 
         for session in self.sessions.values():
-          if session.time > hruntime.time - 300 and hasattr(session, 'authenticated') and hasattr(session, 'name'):
+          if session.age < 300 and hasattr(session, 'authenticated') and hasattr(session, 'name'):
             self.__online.append(session.name)
 
         self.__online_ctime = hruntime.time
@@ -60,7 +59,7 @@ class Storage(UserDict.UserDict):
 
       for session in self.sessions.values():
         # pylint: disable-msg=E1101
-        if hruntime.time - session.time > self.app.config['sessions.time']:
+        if session.age > self.app.config['sessions.time']:
           rm.append(session)
 
       for session in rm:
@@ -123,6 +122,12 @@ class FileStorage(Storage):
     with self.__open_session_file(mode = 'w') as f:
       f.write(cPickle.dumps(self.sessions))
 
+  def purge(self):
+    with self.lock:
+      Storage.purge(self)
+
+      self.save_sessions()
+
   def __contains__(self, name):
     with self.lock:
       if self.sessions == None:
@@ -173,6 +178,12 @@ class Session(object):
     }
 
     return 'sid="%s", time="%s", ip="%s", age="%s", data="%s"' % (self.sid, self.time, self.ip, hruntime.time - self.time, data)
+
+  def __getattr__(self, name):
+    if name == 'age':
+      return hruntime.time - self.time
+
+    return super(Session, self).__getattr__(name)
 
   def __getstate__(self):
     d = self.__dict__.copy()
