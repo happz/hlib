@@ -42,6 +42,7 @@ def log_params():
     'request_agent':		hruntime.request.headers.get('User-Agent', '-'),
     'response_status':		hruntime.response.status,
     'response_length':		hruntime.response.output_length != None and hruntime.response.output_length or 0,
+    'session_id':		hruntime.session.sid if hruntime.session != None else None
   }
 
 def log_access():
