@@ -7,64 +7,60 @@ window.hlib.templates = window.hlib.templates or {}
 #
 # Classes
 #
-class window.hlib.Info
-  constructor: () ->
-    @eid = window.hlib.OPTS.info_dialog.eid
-    @visible = false
 
-  _setup: (tmpl, data, cls, opts) ->
-    $(@eid).dialog
-      closeText:	''
-      autoOpen:		false
-      height:		250
-      modal:		true
+class window.hlib.MessageDialog
+  constructor:			(eid) ->
+    if not eid
+      eid = window.hlib.OPTS.message_dialog
 
-    if opts?
-      $(@eid).dialog 'option', opts
+    @eid = eid
+    @classes = null
 
-    content = window.hlib.render tmpl, data
-    $(@eid).html content
+  show:				(label, msg, beforeClose) ->
+    $(@eid + ' .modal-header h3').html ''
+    if label
+      $(@eid + ' .modal-header h3').html window.hlib._g label
 
-    $(@eid + ' div.right input[type="button"]').click () ->
-      window.hlib.INFO._hide()
+    $(@eid + ' .modal-body p').html ''
+    if msg
+      $(@eid + ' .modal-body p').html msg
 
-  _show: () ->
-    $(@eid).dialog 'open'
-    @visible = true
+    if beforeClose
+      eid = @eid
 
-  _hide: () ->
-    if not @visible
-      return
+      beforeClose_handler = () ->
+        beforeClose()
 
-    $(@eid).dialog 'close'
-    $(@eid).dialog 'destroy'
+      $(eid).off 'hidden', beforeClose_handler
 
-    @visible = false
+    $(eid).removeClass 'bg-color-red bg-color-green'
+    if @classes
+      $(@eid).addClass @classes
 
-  success: (msg, beforeClose) ->
-    data =
-      msg:	msg
+    $(@eid).modal 'show'
 
-    this._setup window.hlib.templates.info_dialog.success, data, 'formee-msg-success',
-      beforeClose:	beforeClose
+  hide:				() ->
+    $(@eid).modal 'hide'
+    $('.modal-backdrop').remove()
 
-    this._show()
+class window.hlib.ErrorDialog extends window.hlib.MessageDialog
+  constructor:			(eid) ->
+    super(eid)
 
-  working: (msg) ->
-    data =
-      msg:	null
+    @classes = 'bg-color-red'
 
-    this._setup window.hlib.templates.info_dialog.working, data, 'formee-msg-info'
-    this._show()
+class window.hlib.InfoDialog extends window.hlib.MessageDialog
+  constructor:			(eid) ->
+    super(eid)
 
-  error: (msg, beforeClose) ->
-    data =
-      msg:	msg
+    @classes = 'bg-color-green'
 
-    this._setup window.hlib.templates.info_dialog.error, data, 'formee-msg-error',
-      beforeClose:	beforeClose
+class window.hlib.WorkingDialog extends window.hlib.MessageDialog
+  constructor:			(eid) ->
+    super(eid)
 
-    this._show()
+  show:				() ->
+    super 'Your request is being processed by our hamsters', window.hlib._g 'If it takes too long, poke our admins <a href="irc://ellen.czn.cz/osadnici">here</a>.'
 
 class window.hlib.Ajax
   constructor:		(opts) ->
@@ -92,12 +88,11 @@ class window.hlib.Ajax
 
       statusCode:
         500:		() ->
-          console.log 'error called'
-          window.hlib.INFO.error 'Server unavailable'
+          window.hlib.ERROR.show 'Server unavailable', 'Oh no! Server suddenly went away. Be sure we are all freaking out - take a break, get a coffee, and try again in 5 minutes or so.'
 
       beforeSend:	() ->
         if opts.show_spinner == true
-          window.hlib.INFO.working()
+          window.hlib.WORKING.show()
 
       success:		(response) ->
         handler_name = 'h' + response.status
@@ -111,7 +106,7 @@ class window.hlib.Ajax
 
           return
 
-        window.hlib.INFO.error 'No handler for response status ' + response.status
+        window.hlib.ERROR.show 'No handler for response status', 'Something is rotten in the state of Denmark... There is no handler for response status ' + response.status
 
       error:		(request, msg, e) ->
         h = window.hlib.get_handler opts, 'error', window.hlib.ajax_default_handlers
@@ -120,7 +115,7 @@ class window.hlib.Ajax
           return
 
         console.log 'error called', e
-        window.hlib.INFO.error msg
+        window.hlib.ERROR.show 'Bad things are all around us...', msg
 
 class window.hlib.Pager
   constructor:		(@opts) ->
@@ -137,19 +132,19 @@ class window.hlib.Pager
 
     @items	= null
 
-    $(@eid + ' span.' + @id_prefix + '-first').click () ->
+    $(@eid + ' .' + @id_prefix + '-first').click () ->
       _pager.first()
       return false
 
-    $(@eid + ' span.' + @id_prefix + '-last').click () ->
+    $(@eid + ' .' + @id_prefix + '-last').click () ->
       _pager.last()
       return false
 
-    $(@eid + ' span.' + @id_prefix + '-prev').click () ->
+    $(@eid + ' .' + @id_prefix + '-prev').click () ->
       _pager.prev()
       return false
 
-    $(@eid + ' span.' + @id_prefix + '-next').click () ->
+    $(@eid + ' .' + @id_prefix + '-next').click () ->
       _pager.next()
       return false
 
@@ -172,12 +167,12 @@ class window.hlib.Pager
           $(_pager.eid + ' tbody').html ''
           $(_pager.eid + ' tbody').append window.hlib.render _pager.template, record for record in response.page.records
 
-          $(_pager.eid + ' span.' + _pager.id_prefix + '-position').html '' + (_pager.start + 1) + '. - ' + (Math.min _pager.items, _pager.start + response.page.cnt_display) + '. z ' + _pager.items
+          $(_pager.eid + ' .' + _pager.id_prefix + '-position').html '' + (_pager.start + 1) + '. - ' + (Math.min _pager.items, _pager.start + response.page.cnt_display) + '. z ' + _pager.items
 
           if _pager.opts.hasOwnProperty 'after_refresh'
             _pager.opts.after_refresh response, _pager
 
-          window.hlib.INFO._hide()
+          window.hlib.MESSAGE.hide()
 
   first:		() ->
     @start = 0
@@ -196,23 +191,27 @@ class window.hlib.Pager
     @refresh()
 
 class window.hlib.FormField
-  constructor:	(@fid) ->
+  constructor:	(@fid, @form) ->
 
   mark_error:		() ->
+    $(@fid).parent().parent().addClass 'error'
     $(@fid).focus()
-    $(@fid).addClass 'formee-error'
     $(@fid).val ''
 
+    @form.last_invalid_field = @
+
   unmark_error:	() ->
-    $(@fid).removeClass 'formee-error'
+    $(@fid).parent().parent().removeClass 'error'
     $(@fid).focus()
+
+    @form.last_invalid_field = null
 
   enable:		() ->
     $(@fid).removeAttr 'disabled'
     $(@fid).removeClass 'disabled'
 
   disable:		() ->
-    $(@fid).attr 'disabled', true
+    $(@fid).attr 'disabled', 'disabled'
     $(@fid).addClass 'disabled'
 
   empty:		() ->
@@ -220,21 +219,35 @@ class window.hlib.FormField
 
 class window.hlib.Form
   class FormInfo
-    constructor:	(form) ->
-      @eid = form.fid + ' .form-forminfo'
+    constructor:	(@form) ->
+      @eid = @form.fid + ' .form-info'
 
-    _show: (msg, cls) ->
-      $(@eid).html '<label>' + msg + '</label>'
-      $(@eid).removeClass 'formee-msg-success formee-msg-error formee-msg-info'
-      $(@eid).addClass cls
-      $(@eid).css 'display', 'block'
-      $(@eid).fadeOut 3000
+    _show: (msg, title, cls) ->
+      $(@eid + ' strong').html ''
+      $(@eid).removeClass 'alert-error'
+      $(@eid).removeClass 'alert-success'
+
+      $(@form.fid + ' p').html window.hlib._g msg
+
+      $(@eid + ' strong').html ''
+      if title
+        $(@eid + ' strong').html window.hlib._g title
+
+      if cls
+        $(@eid).addClass cls
+
+      $(@eid).show()
 
     _hide: () ->
-      $(@eid).css 'display', 'none'
+      $(@eid).hide()
 
-    success: (msg) ->
-      this._show msg, 'formee-msg-success'
+    error:			(msg) ->
+      this._show msg, 'Error!', 'alert-error'
+
+    success:			(msg) ->
+      this._show msg, '', 'alert-success'
+
+      $(@eid).fadeOut 3000
 
   clear:		() ->
     $(@field_id name).val '' for name in @opts.clear_fields
@@ -258,7 +271,7 @@ class window.hlib.Form
     @form_opts =
       dataType:		'json'
       success:	(response) ->
-        window.hlib.INFO._hide()
+        window.hlib.MESSAGE.hide()
 
         _form.clear()
 
@@ -272,7 +285,7 @@ class window.hlib.Form
           h response, _form
           return
 
-        window.hlib.INFO.error 'No handler for response status ' + response.status
+        window.hlib.ERROR.show 'No handler for response status', 'Something is rotten in the state of Denmark... There is no handler for response status ' + response.status
 
       beforeSerialize:		(f, o) ->
         if opts.submit_empty != true
@@ -283,7 +296,11 @@ class window.hlib.Form
       beforeSubmit:             (a, f, o) ->
         f.find(':input[value=""]').removeAttr 'disabled'
 
-        window.hlib.INFO.working()
+        _form.info._hide()
+        if _form.last_invalid_field
+          _form.last_invalid_field.unmark_error()
+
+        window.hlib.WORKING.show()
         return true
 
     $(@fid).ajaxForm @form_opts
@@ -302,7 +319,7 @@ class window.hlib.Form
     '#' + @opts.fid + '_' + name
 
   field:		(name) ->
-    return new window.hlib.FormField @field_id name
+    return new window.hlib.FormField (@field_id name), @
 
   invalid_field:	(response) ->
     if not response.form.hasOwnProperty 'invalid_field'
@@ -323,32 +340,19 @@ String.prototype.format = () ->
 String.prototype.capitalize = () ->
   return @charAt(0).toUpperCase() + this.slice 1
 
-window.hlib.templates.info_dialog =
-  error:        '
-    <div class="formee-msg-error">
-      <label>{{msg}}</label>
-      <div class="right"><input type="button" value="Ok" /></div>
-    </div>'
-  working:      '
-    <div class="formee-msg-info">
-      <img src="/static/images/spinner.gif" alt="" class="ajax_spinner" />
-      <label>{{#_g}}Your request is being processed by our hamsters.{{/_g}}</label>
-      {{#_g}}If it takes too long, poke our admins <a href="irc://ellen.czn.cz/osadnici">here</a>.{{/_g}}
-    </div>'
-  success:      '
-    <div class="formee-msg-success">
-      <label>{{msg}}</label>
-      <div class="right"><input type="button" value="Ok" /></div>
-    </div>'
-
-window.hlib.OPTS =		null
-window.hlib.INFO =		null
+window.hlib.OPTS		= null
+window.hlib.INFO		= null
+window.hlib.ERROR		= null
+window.hlib.WORKING		= null
 
 window.hlib.trace = () ->
   trace = printStackTrace()
   console.log trace.join '\n'
 
 window.hlib._g = (s) ->
+  if s.length <= 0
+    return ''
+
   if window.settlers.i18n and window.settlers.i18n.tokens and window.settlers.i18n.tokens.hasOwnProperty s
     return window.settlers.i18n.tokens[s]
 
@@ -364,15 +368,17 @@ window.hlib.enable = (fid) ->
   $('#' + fid).removeClass 'disabled'
 
 window.hlib.enableIcon = (sel, callback) ->
-  $(sel).removeClass 'icon-disabled'
+  $(sel).removeAttr 'disabled'
   $(sel).unbind 'click'
   $(sel).click () ->
     callback()
     return false
 
 window.hlib.disableIcon = (sel) ->
-  $(sel).removeClass 'icon-disabled'
-  $(sel).addClass 'icon-disabled'
+  $('a[rel=tooltip]').tooltip 'hide'
+  $('button[rel=tooltip]').tooltip 'hide'
+
+  $(sel).attr 'disabled', 'disabled'
   $(sel).unbind 'click'
   $(sel).click () ->
     return false
@@ -435,15 +441,18 @@ window.hlib.get_handler = (table_parent, handler_name, defaults) ->
 
   return false
 
-window.hlib.error = (error, after) ->
-  msg = error.message
+window.hlib.format_error = (error) ->
+  msg = window.hlib._g error.message
 
   __per_param = (name, value) ->
     msg = msg.replace '%(' + name + ')s', value
 
   __per_param name, value for own name, value of error.params
 
-  window.hlib.INFO.error msg, after
+  return msg
+
+window.hlib.error = (label, error, beforeClose) ->
+  window.hlib.ERROR.show (window.hlib._g label), (window.hlib.format_error error), beforeClose
 
 window.hlib.form_default_handlers =
   # Everything is all right
@@ -458,42 +467,50 @@ window.hlib.form_default_handlers =
     window.hlib.redirect response.redirect.url
 
   # Bad Request - empty fields, invalid values, typos, ...
-  s400:       (response, form) ->
-    field = form.invalid_field(response)
-    field.mark_error()
-
-    window.hlib.error response.error, () ->
-      field.unmark_error()
+  s400:				(response, form) ->
+    form.invalid_field(response).mark_error()
+    form.info.error window.hlib.format_error response.error
 
   # Unauthorized - wrong password, ACL violations, ...
   s401:       (response, form) ->
-    window.hlib.error response.error
+    window.hlib.error 'Unauthorized', response.error
 
   # Conflicting errors - impossible requests, joining already joined games, etc...
   s402:       (response, form) ->
-    window.hlib.error response.error
+    window.hlib.error 'Conflict error', response.error
 
   # Invalid (not malformed!) input - duplicit names, unknown names etc.
   s403:       (response, form) ->
     field = form.invalid_field(response)
     field.mark_error()
 
-    window.hlib.error response.error, () ->
+    window.hlib.error '', response.error, () ->
       field.unmark_error()
 
   # Internal server error
   s500:		(response, form) ->
-    window.hlib.error response.error
+    window.hlib.error 'Internal error', response.error
 
 window.hlib.ajax_default_handlers =
   # Redirect
-  h303:		(response, form) ->
+  h303:		(response, ajax) ->
     window.hlib.redirect response.redirect.url
 
+  # Invalid (not malformed!) input - duplicit names, unknown names etc.
+  h403:		(response, ajax) ->
+    window.hlib.error '', response.error
+
   # Internal server error
-  h500:		(response, form) ->
-    window.hlib.error response.error
+  h500:		(response, ajax) ->
+    window.hlib.error 'Internal error', response.error
 
 window.hlib.setup_common = (opts) ->
   window.hlib.OPTS = opts
-  window.hlib.INFO = new window.hlib.Info
+
+  window.hlib.MESSAGE = new window.hlib.MessageDialog opts.message_dialog
+  window.hlib.INFO = new window.hlib.InfoDialog opts.message_dialog
+  window.hlib.ERROR = new window.hlib.ErrorDialog opts.message_dialog
+  window.hlib.WORKING = new window.hlib.WorkingDialog opts.message_dialog
+
+  $(opts.message_dialog).modal
+    show:			false
