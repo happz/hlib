@@ -20,6 +20,7 @@ import urllib
 import UserDict
 
 import hlib
+import hlib.api
 import hlib.auth
 import hlib.cache
 import hlib.compress
