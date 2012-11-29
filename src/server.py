@@ -230,13 +230,19 @@ class ThreadPool(object):
 
     # pylint: disable-msg=W0613
     with stats_lock:
-      d = stats[self.stats_name]['Threads'][hruntime.tid]
       ri = hruntime.request
       ro = hruntime.response
+      t = time.time() - ri.ctime
 
+      d = stats[self.stats_name]['Threads'][hruntime.tid]
       d['Total bytes read']		+= ri.read_bytes
       d['Total bytes written']		+= ri.written_bytes
-      d['Total time']			+= (time.time() - ri.ctime)
+      d['Total time']			+= t
+
+      d = stats[self.server.engine.stats_name]
+      d['Total bytes read']		+= ri.read_bytes
+      d['Total bytes written']		+= ri.written_bytes
+      d['Total time']			+= t
 
   def get_request(self):
     """
@@ -329,7 +335,7 @@ class Server(SocketServer.TCPServer):
   This class represents one HTTP server.
   """
 
-  def __init__(self, name, config, *args, **kwargs):
+  def __init__(self, engine, name, config, *args, **kwargs):
     """
     Instantiate Server object. Setup server properties, prepare sockets, etc... Pass C{args} and C{kwargs} to parenting class, these include server' bind address and port, and request handler class.
 
@@ -338,6 +344,7 @@ class Server(SocketServer.TCPServer):
     @see:			http://docs.python.org/library/socketserver.html#asynchronous-mixins
     """
 
+    self.engine			= engine
     self.name			= name
     self.config			= config
     self.server_thread		= None

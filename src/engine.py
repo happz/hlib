@@ -20,9 +20,7 @@ import urllib
 import UserDict
 
 import hlib
-import hlib.api
 import hlib.auth
-import hlib.cache
 import hlib.compress
 import hlib.error
 import hlib.event
@@ -56,6 +54,8 @@ class Application(object):
     self.root                   = root
     self.db			= db
     self.config			= config
+
+    import hlib.cache
     self.cache			= hlib.cache.Cache(self.name, self)
 
     self.channels		= hlib.Config()
@@ -64,6 +64,7 @@ class Application(object):
 
     self.sessions		= None
 
+    import hlib.api
     self.api_tokens		= hlib.api.ApiTokenCache(self.name, self)
 
   @staticmethod
@@ -369,7 +370,7 @@ class Engine(object):
     for sc in server_configs:
       self.apps[sc['app'].name] = sc['app']
 
-      server = hlib.server.Server('server-%i' % i, sc, (sc['host'], sc['port']), hlib.server.RequestHandler)
+      server = hlib.server.Server(self, 'server-%i' % i, sc, (sc['host'], sc['port']), hlib.server.RequestHandler)
       self.servers.append(server)
 
       i += 1
@@ -443,7 +444,6 @@ class Engine(object):
       'Bytes written':                  0,
       'Client':                         ':'.join(hruntime.request.ip),
       'Start time':                     hruntime.time,
-      'Processing time':		lambda s: time.time() - s['Start time'],
       'Requested line':                 None
     }
 
@@ -515,24 +515,36 @@ class Engine(object):
 
     from hlib.stats import stats, stats_lock
 
-    # pylint: disable-msg=W0613
-    with stats_lock:
-      del stats[self.stats_name]['Requests'][hruntime.tid]
+    def __update_stats(engine_stat):
+      # pylint: disable-msg=W0613
+      with stats_lock:
+        d = stats[self.stats_name]
+
+        del d['Requests'][hruntime.tid]
+
+        if engine_stat:
+          d[engine_stat] += 1
 
     if not hruntime.request.handler:
       hruntime.db.rollback()
+      __update_stats('Missing handlers')
       return
 
     if hruntime.request.requires_write != True:
       hruntime.db.rollback()
+      __update_stats('RO requests')
       return
 
     if hruntime.dont_commit != False:
       hruntime.db.rollback()
+      __update_stats('Forced RO requests')
       return
 
     if hruntime.db.commit() == True:
+      __update_stats(None)
       return
+
+    __update_stats('Failed commits')
 
     hlib.log.log_error(hlib.database.CommitFailedError())
 
@@ -569,7 +581,12 @@ class Engine(object):
       'Bytes written/request':    lambda s: (s['Total requests'] and (s['Total bytes written'] / float(s['Total requests'])) or 0.0),
       'Requests/second':          lambda s: float(s['Total requests']) / s['Uptime'](s),
 
-      'Requests':                 {}
+      'Requests':                 {},
+
+      'Missing handlers':	0,
+      'RO requests':		0,
+      'Forced RO requests':	0,
+      'Failed commits':		0,
     })
 
   def start(self):
