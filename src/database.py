@@ -138,6 +138,9 @@ class DB(object):
   def rollback(self):
     transaction.abort()
 
+  def pack(self):
+    self.db.pack()
+
   def update_stats(self):
     data = self.db.getActivityMonitor().getActivityAnalysis(divisions = 1)[0]
 
