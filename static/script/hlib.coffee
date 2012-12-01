@@ -16,6 +16,10 @@ class window.hlib.MessageDialog
     @eid = eid
     @classes = null
 
+    $('.modal-footer button').click () ->
+      window.hlib.MESSAGE.hide()
+      return false
+
   show:				(label, msg, beforeClose) ->
     $(@eid + ' .modal-header h3').html ''
     if label
@@ -244,8 +248,11 @@ class window.hlib.Form
     error:			(msg) ->
       this._show msg, 'Error!', 'alert-error'
 
-    success:			(msg) ->
+    success:			(msg, dont_fade) ->
       this._show msg, '', 'alert-success'
+
+      if dont_fade
+        return
 
       $(@eid).fadeOut 3000
 
@@ -481,11 +488,8 @@ window.hlib.form_default_handlers =
 
   # Invalid (not malformed!) input - duplicit names, unknown names etc.
   s403:       (response, form) ->
-    field = form.invalid_field(response)
-    field.mark_error()
-
-    window.hlib.error '', response.error, () ->
-      field.unmark_error()
+    form.invalid_field(response).mark_error()
+    form.info.error window.hlib.format_error response.error
 
   # Internal server error
   s500:		(response, form) ->
