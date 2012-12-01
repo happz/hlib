@@ -150,6 +150,7 @@ class AccessDeniedError(BaseError):
 
 class NoSuchUserError(InvalidInputError):
   def __init__(self, username, **kwargs):
+    kwargs['reply_status']	= 403
     kwargs['msg']		= 'No such user "%(username)s"'
     kwargs.setdefault('params', {})['username'] = username
 
