@@ -91,7 +91,7 @@ class Form(Element):
     return '</fieldset>' + super(Form, self).end()
 
 class InputElement(Element):
-  def __init__(self, name, form_name = None, label = None, size = None, value = None, disabled = False, required = False, help = None, *args, **kwargs):
+  def __init__(self, name, form_name = None, label = None, size = None, value = None, disabled = False, required = False, help = None, placeholder = None, *args, **kwargs):
     super(InputElement, self).__init__(name, *args, **kwargs)
 
     self.form_name		= form_name
@@ -100,6 +100,7 @@ class InputElement(Element):
     self.disabled		= disabled
     self.required		= required
     self.help			= help
+    self.placeholder		= placeholder
 
     if self.form_name != None:
       self.id			= hruntime.ui_form.raw_id + '_' + self.form_name
@@ -118,6 +119,9 @@ class InputElement(Element):
 
     if self.disabled:
       attrs['disabled']		= 'disabled'
+
+    if self.placeholder != None:
+      attrs['placeholder']	= self.placeholder
 
     return attrs
 
