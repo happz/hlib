@@ -37,7 +37,7 @@ class window.hlib.MessageDialog
 
       $(eid).off 'hidden', beforeClose_handler
 
-    $(eid).removeClass 'bg-color-red bg-color-green'
+    $(@eid).removeClass 'bg-color-red bg-color-green'
     if @classes
       $(@eid).addClass @classes
 
@@ -196,30 +196,85 @@ class window.hlib.Pager
 
 class window.hlib.FormField
   constructor:	(@fid, @form) ->
+    @on_enabled = null
+    @on_disable = null
 
   mark_error:		() ->
-    $(@fid).parent().parent().addClass 'error'
-    $(@fid).focus()
-    $(@fid).val ''
+    $(@fid).parent().parent().addClass('error').focus().val('')
 
     @form.last_invalid_field = @
+    @
 
   unmark_error:	() ->
     $(@fid).parent().parent().removeClass 'error'
     $(@fid).focus()
 
     @form.last_invalid_field = null
+    @
 
-  enable:		() ->
-    $(@fid).removeAttr 'disabled'
-    $(@fid).removeClass 'disabled'
+  enable:		(handler) ->
+    if handler
+      @on_enable = handler
 
-  disable:		() ->
-    $(@fid).attr 'disabled', 'disabled'
-    $(@fid).addClass 'disabled'
+    else
+      $(@fid).removeAttr 'disabled'
+      $(@fid).removeAttr 'placeholder'
+
+      if @on_enable
+        @on_enable @
+
+    @
+
+  disable:		(handler) ->
+    if handler
+      @on_disable = handler
+
+    else
+      $(@fid).attr 'disabled', 'disabled'
+
+      if @on_disable
+        @on_disable @
+
+    @
 
   empty:		() ->
     $(@fid).html ''
+    @
+
+  placeholder:			(text) ->
+    if text
+      if $(@fid).prop('tagName') == 'SELECT'
+        $(@fid).html('').prepend('<option value="" disabled="disabled">' + text + '</option>').val('')
+      else
+        $(@fid).attr('placeholder', text).val('')
+      return @
+
+    else
+      $(@fid).attr 'placeholder'
+
+  content:		(html) ->
+    if html
+      $(@fid).html html
+      return @
+
+    else
+      return $(@fid).html()
+
+  value:		(val) ->
+    if val
+      $(@fid).val val
+      return @
+
+    else
+      return $(@fid).val()
+
+  hide:			() ->
+    $(@fid).hide()
+    @
+
+  show:			() ->
+    $(@fid).show()
+    @
 
 class window.hlib.Form
   class FormInfo
@@ -262,6 +317,7 @@ class window.hlib.Form
   constructor: (@opts) ->
     @fid = '#' + opts.fid + '_form'
     @info = new FormInfo(@)
+    @fields = {}
 
     if not opts.hasOwnProperty 'clear_fields'
       opts.clear_fields = []
@@ -326,7 +382,10 @@ class window.hlib.Form
     '#' + @opts.fid + '_' + name
 
   field:		(name) ->
-    return new window.hlib.FormField (@field_id name), @
+    if not @fields.hasOwnProperty(name)
+      @fields[name] = new window.hlib.FormField (@field_id name), @
+
+    return @fields[name]
 
   invalid_field:	(response) ->
     if not response.form.hasOwnProperty 'invalid_field'
