@@ -507,15 +507,15 @@ window.hlib.get_handler = (table_parent, handler_name, defaults) ->
 
   return false
 
-window.hlib.format_error = (error) ->
-  msg = window.hlib._g error.message
-
+window.hlib.format_string = (str, params) ->
   __per_param = (name, value) ->
-    msg = msg.replace '%(' + name + ')s', value
+    str = str.replace '%(' + name + ')s', value
 
-  __per_param name, value for own name, value of error.params
+  __per_param name, value for own name, value of params
+  return str
 
-  return msg
+window.hlib.format_error = (error) ->
+  return window.hlib.format_string (window.hlib._g error.message), error.params
 
 window.hlib.error = (label, error, beforeClose) ->
   window.hlib.ERROR.show (window.hlib._g label), (window.hlib.format_error error), beforeClose
