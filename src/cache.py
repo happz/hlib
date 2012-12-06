@@ -1,4 +1,3 @@
-import pprint
 import threading
 
 class Cache(object):
