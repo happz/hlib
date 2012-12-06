@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cloc --read-lang-def=../conf/cloc.langs --exclude-ext=js,css ../src ../static/script/
