@@ -70,8 +70,6 @@ class window.hlib.Ajax
   constructor:		(opts) ->
     _ajax = @
 
-    if not opts.hasOwnProperty 'async'
-      opts.async = false
     if not opts.hasOwnProperty 'data'
       opts.data = {}
     if not opts.hasOwnProperty 'keep_focus'
@@ -81,11 +79,20 @@ class window.hlib.Ajax
 
     focus_elements = $(document.activeElement)
 
+    handle_ajax_error = (response, jqXHR, textStatus, errorThrown) ->
+      h = window.hlib.get_handler opts, 'error', window.hlib.ajax_default_handlers
+      if h
+        h response, _ajax
+        return
+
+      console.log 'error called', textStatus
+      console.log jqXHR, errorThrown
+      window.hlib.ERROR.show 'Bad things are all around us. Check JS console'
+
     $.ajax
       dataType:		'json'
       type:		'POST'
       url:		opts.url
-      async:		opts.async
       data:		opts.data
       cache:		false
       timeout:		10000
@@ -98,28 +105,29 @@ class window.hlib.Ajax
         if opts.show_spinner == true
           window.hlib.WORKING.show()
 
-      success:		(response) ->
-        handler_name = 'h' + response.status
+      complete:			(jqXHR, textStatus) ->
+        response = $.parseJSON jqXHR.responseText
 
-        h = window.hlib.get_handler opts, handler_name, window.hlib.ajax_default_handlers
-        if h
-          h response, _ajax
+        if textStatus == 'success'
+          handler_name = 'h' + response.status
 
-          if opts.keep_focus and focus_elements[0] and focus_elements[0].id
-            $('#' + focus_elements[0].id).focus()
+          h = window.hlib.get_handler opts, handler_name, window.hlib.ajax_default_handlers
+          if h
+            h response, _ajax
 
-          return
+            if opts.keep_focus and focus_elements[0] and focus_elements[0].id
+              $('#' + focus_elements[0].id).focus()
 
-        window.hlib.ERROR.show 'No handler for response status', 'Something is rotten in the state of Denmark... There is no handler for response status ' + response.status
+            return
 
-      error:		(request, msg, e) ->
-        h = window.hlib.get_handler opts, 'error', window.hlib.ajax_default_handlers
-        if h
-          h response, _ajax
-          return
+          window.hlib.ERROR.show 'No handler for response status', 'Something is rotten in the state of Denmark... There is no handler for response status ' + response.status
 
-        console.log 'error called', e
-        window.hlib.ERROR.show 'Bad things are all around us...', msg
+        else
+          handle_ajax_error response, jqXHR, textStatus, errorThrown
+
+      error:			(jqXHR, textStatus, errorThrown) ->
+        response = $.parseJSON jqXHR.responseText
+        handle_ajax_error response, jqXHR, textStatus, errorThrown
 
 class window.hlib.Pager
   constructor:		(@opts) ->
