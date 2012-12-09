@@ -32,6 +32,9 @@ class RequestStarted(Event):
 class RequestFinished(Event):
   dont_store = True
 
+class RequestClosed(Event):
+  dont_store = True
+
 import hlib
 
 hlib.register_event(Started)
@@ -42,3 +45,4 @@ hlib.register_event(RequestConnected)
 hlib.register_event(RequestAccepted)
 hlib.register_event(RequestStarted)
 hlib.register_event(RequestFinished)
+hlib.register_event(RequestClosed)

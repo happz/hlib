@@ -145,6 +145,8 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 
     output = res.dumps()
 
+    hlib.event.trigger('engine.RequestFinished', None)
+
     try:
       self.request.sendall(output)
 
@@ -156,7 +158,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
     else:
       req.written_bytes += len(output)
 
-    hlib.event.trigger('engine.RequestFinished', None)
+    hlib.event.trigger('engine.RequestClosed', None)
 
 class ThreadPool(object):
   """

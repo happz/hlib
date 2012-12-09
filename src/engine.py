@@ -385,6 +385,7 @@ class Engine(object):
     hlib.event.Hook('engine.RequestAccepted',  'hlib.engine.Engine', self.on_request_accepted)
     hlib.event.Hook('engine.RequestStarted',   'hlib.engine.Engine', self.on_request_started)
     hlib.event.Hook('engine.RequestFinished',  'hlib.engine.Engine', self.on_request_finished)
+    hlib.event.Hook('engine.RequestClosed',    'hlib.engine.Engine', self.on_request_closed)
     hlib.event.Hook('engine.Halted',           'hlib.engine.Engine', self.on_engine_halted)
 
   def on_hup(self, signum, frame):
@@ -505,7 +506,7 @@ class Engine(object):
     """
     Default hlib handler for C{engine.RequestFinished} event.
 
-    Clean up after finished request. Log access into access log, commit (or rollback) database changes and update statistics.
+    Clean up after finished request. Log access into access log, commit (or rollback) database changes.
 
     @type e:			L{hlib.events.engine.RequestFinished}
     @param e:			Current event.
@@ -518,12 +519,7 @@ class Engine(object):
     def __update_stats(engine_stat):
       # pylint: disable-msg=W0613
       with stats_lock:
-        d = stats[self.stats_name]
-
-        del d['Requests'][hruntime.tid]
-
-        if engine_stat:
-          d[engine_stat] += 1
+        stats[self.stats_name][engine_stat] += 1
 
     if not hruntime.request.handler:
       hruntime.db.rollback()
@@ -541,12 +537,26 @@ class Engine(object):
       return
 
     if hruntime.db.commit() == True:
-      __update_stats(None)
       return
 
     __update_stats('Failed commits')
 
     hlib.log.log_error(hlib.database.CommitFailedError())
+
+  def on_request_closed(self, e):
+    """
+    Default hlib handler for C{engine.RequestFinished} event.
+
+    Clean up after finished request, and update statistics.
+
+    @type e:			L{hlib.events.engine.RequestFinished}
+    @param e:			Current event.
+    """
+
+    from hlib.stats import stats, stats_lock
+
+    with stats_lock:
+      del stats[self.stats_name]['Requests'][hruntime.tid]
 
   def on_engine_halted(self, e):
     """
