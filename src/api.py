@@ -54,6 +54,9 @@ class ApiIORegime(hlib.handlers.IORegime):
       if type(r) == types.DictType:
         return Raw(r).dump()
 
+      if type(r) in types.StringTypes:
+        return r
+
       raise hlib.error.InvalidOutputError()
 
     except hlib.http.Redirect, e:
