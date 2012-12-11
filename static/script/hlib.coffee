@@ -96,6 +96,7 @@ class window.hlib.Ajax
       data:		opts.data
       cache:		false
       timeout:		10000
+      async:		true
 
       statusCode:
         500:		() ->
@@ -177,7 +178,7 @@ class window.hlib.Pager
           _pager.items = response.page.cnt_total
 
           $(_pager.eid + ' tbody').html ''
-          $(_pager.eid + ' tbody').append window.hlib.render _pager.template, record for record in response.page.records
+          $(_pager.eid + ' tbody').append _pager.template record for record in response.page.records
 
           $(_pager.eid + ' .' + _pager.id_prefix + '-position').html '' + (_pager.start + 1) + '. - ' + (Math.min _pager.items, _pager.start + response.page.cnt_display) + '. z ' + _pager.items
 
@@ -495,13 +496,6 @@ window.hlib.redirect = (url) ->
 
 window.hlib.setTitle = (msg) ->
   document.title = msg
-
-window.hlib.render = (tmpl, data) ->
-  data._g = () ->
-    (token) ->
-      window.hlib._g token
-
-  Mustache.to_html(tmpl, data)
 
 window.hlib.get_handler = (table_parent, handler_name, defaults) ->
   if table_parent.hasOwnProperty 'handlers'
