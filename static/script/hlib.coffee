@@ -569,7 +569,7 @@ window.hlib.ajax_default_handlers =
   h500:		(response, ajax) ->
     window.hlib.error 'Internal error', response.error
 
-window.hlib.setup_common = (opts) ->
+window.hlib.setup = (opts) ->
   window.hlib.OPTS = opts
 
   window.hlib.MESSAGE = new window.hlib.MessageDialog opts.message_dialog
