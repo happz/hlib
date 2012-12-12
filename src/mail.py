@@ -47,6 +47,6 @@ def send_email(app, sender, recipient, subject, body):
   msg['To'] = email.utils.formataddr((recipient_name, recipient_addr))
   msg['Subject'] = email.Header.Header(unicode(subject), header_charset)
 
-  smtp = smtplib.SMTP('localhost')
+  smtp = smtplib.SMTP(app.config['mail.server'])
   smtp.sendmail(sender, recipient, msg.as_string())
   smtp.quit()
