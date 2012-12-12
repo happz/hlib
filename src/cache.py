@@ -88,9 +88,6 @@ class Cache(object):
     with self.lock:
       for user, chain in self.objects.items():
         for key, value in chain.items():
-          if user.name not in ret:
-            ret[user.name] = {}
-
-          ret[user.name] = {'Key': key, 'Size': len(value)}
+          ret[user.name + ' - ' + key] = {'Type': str(type(value)).replace('<', '').replace('>', ''), 'Size': len(value)}
 
     return ret
