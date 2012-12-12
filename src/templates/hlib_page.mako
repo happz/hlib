@@ -43,8 +43,11 @@
   <script type="text/javascript">
     $(document).ready(function() {
       $(window).trigger('hlib_prestartup');
+      $(window).trigger('page_prestartup');
       $(window).trigger('hlib_startup');
+      $(window).trigger('page_startup');
       $(window).trigger('hlib_poststartup');
+      $(window).trigger('page_poststartup');
     });
   </script>
 </%def>
