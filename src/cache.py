@@ -30,8 +30,26 @@ class Cache(object):
 
     return self.objects[user]
 
+  def __check_caching_status(self, key):
+    C = self.app.config
+
+    if 'cache.enabled' not in C:
+      return False
+
+    if C['cache.enabled'] != True:
+      return False
+
+    ck = 'cache.dont_cache.' + key
+    if ck not in C:
+      return True
+
+    if C[ck] != True:
+      return True
+
+    return False
+
   def get(self, user, key, default = None):
-    if not self.app.config['cache.enabled']:
+    if not self.__check_caching_status(key):
       return default
 
     with self.lock:
@@ -40,7 +58,7 @@ class Cache(object):
       return chain.get(key, default = default)
 
   def set(self, user, key, value):
-    if not self.app.config['cache.enabled']:
+    if not self.__check_caching_status(key):
       return
 
     with self.lock:
@@ -49,8 +67,7 @@ class Cache(object):
       chain[key] = value
 
   def test_and_set(self, user, key, callback, *args, **kwargs):
-    # pylint: disable-msg=W0101
-    if not self.app.config['cache.enabled']:
+    if not self.__check_caching_status(key):
       return callback(*args, **kwargs)
 
     with self.lock:
