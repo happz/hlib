@@ -50,6 +50,8 @@ class Application(object):
 
     super(Application, self).__init__()
 
+    self.engines		= []
+
     self.name                   = name
     self.root                   = root
     self.db			= db
@@ -369,6 +371,7 @@ class Engine(object):
     i = 0
     for sc in server_configs:
       self.apps[sc['app'].name] = sc['app']
+      sc['app'].engines.append(self)
 
       server = hlib.server.Server(self, 'server-%i' % i, sc, (sc['host'], sc['port']), hlib.server.RequestHandler)
       self.servers.append(server)
