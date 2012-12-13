@@ -20,7 +20,11 @@ class UserLoggedIn(UserEvent):
 class UserLoggedOut(UserEvent):
   dont_store = True
 
+class ChatPost(UserEvent):
+  pass
+
 import hlib
 
 hlib.register_event(UserLoggedIn)
 hlib.register_event(UserLoggedOut)
+hlib.register_event(ChatPost)
