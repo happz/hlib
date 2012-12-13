@@ -268,3 +268,5 @@ ObjectMapping = StringMapping
 
 from persistent.list import PersistentList as SimpleList
 from persistent.mapping import PersistentMapping as SimpleMapping
+
+from BTrees.Length import Length
