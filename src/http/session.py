@@ -160,14 +160,14 @@ class FileStorage(Storage):
         self.save_sessions()
 
 class Session(object):
-  def __init__(self, storage, time, ip):
+  def __init__(self, storage, time, ips):
     super(Session, self).__init__()
 
     self.storage	= storage
     self.code		= None
     self.sid		= None
     self.time		= time
-    self.ip		= ':'.join(ip)
+    self.ip		= hlib.ips_to_str(ips)
 
     self.gen_sid()
 
@@ -196,14 +196,14 @@ class Session(object):
 
   @staticmethod
   def create():
-    return hlib.http.session.Session(hruntime.app.sessions, hruntime.time, hruntime.request.ip)
+    return hlib.http.session.Session(hruntime.app.sessions, hruntime.time, hruntime.request.ips)
 
   def gen_sid(self):
     self.code		= gen_rand_string(10)
-    self.sid		= hashlib.md5('%s-%s-%s' % (':'.join(hruntime.request.ip), hruntime.time, self.code)).hexdigest()
+    self.sid		= hashlib.md5('%s-%s-%s' % (hlib.ips_to_str(hruntime.request.ips), hruntime.time, self.code)).hexdigest()
 
   def check(self):
-    if self.ip != ':'.join(hruntime.request.ip):
+    if self.ip != hlib.ips_to_str(hruntime.request.ips):
       return False
 
     self.time = hruntime.time

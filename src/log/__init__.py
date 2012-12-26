@@ -37,7 +37,7 @@ def log_params():
     'date':			time.strftime('%d/%m/%Y', hruntime.localtime),
     'time':			time.strftime('%H:%M:%S', hruntime.localtime),
     'request_line':		hruntime.request.requested_line,
-    'request_ip':		':'.join(hruntime.request.ip),
+    'request_ip':		hlib.ips_to_str(hruntime.request.ips),
     'request_user':		hruntime.session.name if hruntime.session != None and hasattr(hruntime.session, 'authenticated') and hasattr(hruntime.session, 'name') else '-',
     'request_agent':		hruntime.request.headers.get('User-Agent', '-'),
     'response_status':		hruntime.response.status,

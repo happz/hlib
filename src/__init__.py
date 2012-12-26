@@ -57,6 +57,9 @@ PATH = os.path.dirname(__file__)
 def url(path = None):
   return 'http://' + hruntime.request.base + path
 
+def ips_to_str(ips):
+  return ':'.join([str(ip) for ip in ips])
+
 class ConfigFile(ConfigParser.ConfigParser):
   def __init__(self, default = None):
     ConfigParser.ConfigParser.__init__(self)

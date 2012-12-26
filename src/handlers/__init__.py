@@ -13,7 +13,7 @@ import hlib.http
 
 import hruntime
 
-__all__ = ['tag_fn', 'prohibited', 'require_login', 'require_admin', 'require_write',
+__all__ = ['tag_fn', 'prohibited', 'require_login', 'require_admin', 'require_write', 'require_hosts',
            'page',
            'GenericHandler']
 
@@ -89,6 +89,12 @@ prohibited			= lambda f: tag_fn(f, 'prohibited', True)
 require_login			= lambda f: tag_fn(f, 'require_login', True)
 require_admin			= lambda f: tag_fn(f, 'require_admin', True)
 require_write			= lambda f: tag_fn(f, 'require_write', True)
+
+def require_hosts(get_hosts = None):
+  def _require_hosts(fn):
+    tag_fn(fn, 'require_hosts', get_hosts)
+    return fn
+  return _require_hosts
 
 page				= lambda f: tag_fn(f, 'ioregime', PageIORegime)
 

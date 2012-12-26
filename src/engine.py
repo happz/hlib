@@ -10,6 +10,7 @@ __contact__             = 'happz@happz.cz'
 __license__             = 'http://www.php-suit.com/dpl'
 
 import hashlib
+import ipaddr
 import os.path
 import pprint
 import signal
@@ -160,15 +161,18 @@ class Request(object):
     self.read_bytes	= 0
     self.written_bytes	= 0
 
+    self._ips		= None
+
   requires_login	= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_login', False))
   requires_admin	= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_admin', False))
   requires_write	= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_write', False))
+  requires_hosts	= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_hosts', False))
 
   is_prohibited		= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'prohibited', False))
   is_tainted		= property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'tainted'))
   is_authenticated	= property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'authenticated') and hruntime.session.authenticated == True)
 
-  ip			= property(lambda self: [self.server_handler.client_address[0]] + ('X-Forwarded-For' in self.headers and [ip.strip() for ip in self.headers['X-Forwarded-For'].split(',')] or []))
+  ips			= property(lambda self: [ipaddr.IPAddress(self.server_handler.client_address[0])] + ([ipaddr.IPAddress(ip.strip()) for ip in self.headers['X-Forwarded-For'].split(',')] if 'X-Forwarded-For' in self.headers else []))
 
   def read_data(self, socket):
     while True:
@@ -446,7 +450,7 @@ class Engine(object):
     d = {
       'Bytes read':                     0,
       'Bytes written':                  0,
-      'Client':                         ':'.join(hruntime.request.ip),
+      'Client':                         hlib.ips_to_str(hruntime.request.ips),
       'Start time':                     hruntime.time,
       'Requested line':                 None
     }
@@ -463,7 +467,7 @@ class Engine(object):
     with stats_lock:
       d = stats[self.stats_name]['Requests'][hruntime.tid]
 
-      d['Client']                         = ':'.join(hruntime.request.ip)
+      d['Client']                         = hlib.ips_to_str(hruntime.request.ips)
       d['Requested line']                 = hruntime.request.requested_line
 
   def on_request_started(self, e):
@@ -483,6 +487,32 @@ class Engine(object):
     hruntime.clean()
 
     req = hruntime.request
+
+    if req.requires_hosts:
+      hosts_allowed = req.requires_hosts()
+      hosts_present = req.ips
+
+      def __check_host(h):
+        for host_allowed in hosts_allowed:
+          if type(host_allowed) in (ipaddr.IPv4Address, ipaddr.IPv6Address) and h == host_allowed:
+            return True
+          if type(host_allowed) in (ipaddr.IPv4Network, ipaddr.IPv6Network) and h in host_allowed:
+            return True
+
+        return False
+
+      if len(hosts_present) <= 0:
+        # handler has require_hosts but client present no address => fail
+        passed = False
+
+      elif len(hosts_present) == 1:
+        passed = __check_host(hosts_present[0])
+
+      elif len(hosts_present) > 1:
+        passed = __check_host(hosts_present[1])
+
+      if passed != True:
+        raise hlib.http.Prohibited()
 
     if req.requires_login:
       io_regime = hlib.handlers.tag_fn_check(req.handler, 'ioregime', None)
