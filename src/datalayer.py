@@ -50,7 +50,10 @@ class DummyUser(object):
   def __init__(self, name):
     super(DummyUser, self).__init__()
 
-    self.name		= name
+    self.name		= unicode(name)
+
+  def __hash__(self):
+    return hash(self.name)
 
 class User(DBObject):
   def __init__(self, name, password, email):
