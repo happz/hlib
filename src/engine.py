@@ -59,7 +59,7 @@ class Application(object):
     self.config			= config
 
     import hlib.cache
-    self.cache			= hlib.cache.Cache(self.name, self)
+    self.cache			= hlib.cache.Cache('Global', self)
 
     self.channels		= hlib.Config()
     self.channels.access	= []
@@ -603,6 +603,16 @@ class Engine(object):
     stats_copy = hlib.stats.snapshot(hlib.stats.stats)
 
     pprint.pprint(stats_copy)
+
+    for app in self.apps.values():
+      if app.cache:
+        print
+        print app.cache.stats_name
+
+        for user, chain in app.cache.objects.items():
+          print '  %s' % user.name.encode('ascii', 'replace')
+          for key, value in chain.items():
+            print '    "%s" = %s, size %i' % (key, type(value), len(value))
 
   def init_stats(self):
     import hlib.stats
