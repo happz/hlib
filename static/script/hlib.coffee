@@ -375,7 +375,12 @@ class window.hlib.Form
         window.hlib.WORKING.show()
         return true
 
-    $(@fid).ajaxForm @form_opts
+    $(@fid).live 'submit', (event) ->
+      event.preventDefault()
+
+      $(_form.fid).ajaxSubmit _form.form_opts
+
+      return false
 
     @clear()
 
@@ -492,7 +497,8 @@ window.hlib.clone = (obj) ->
   return newInstance
 
 window.hlib.redirect = (url) ->
-  window.location = url
+  window.location.replace url
+  false
 
 window.hlib.setTitle = (msg) ->
   document.title = msg
