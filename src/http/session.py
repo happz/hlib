@@ -46,7 +46,7 @@ class Storage(UserDict.UserDict):
         self.__online = []
 
         for session in self.sessions.values():
-          if session.age < 300 and hasattr(session, 'authenticated') and hasattr(session, 'name'):
+          if session.age < 300 and hasattr(session, 'authenticated') and hasattr(session, 'name') and session.name:
             self.__online.append(session.name)
 
         self.__online_ctime = hruntime.time
@@ -171,19 +171,18 @@ class Session(object):
 
     self.gen_sid()
 
-  def __str__(self):
+  def __repr__(self):
     data = {
       'authenticated': self.authenticated if hasattr(self, 'authenticated') else None,
-      'name': self.name if hasattr(self, 'name') else None
+      'name': self.name if hasattr(self, 'name') else None,
+      'tainted':		self.tainted if hasattr(self, 'tainted') else None
     }
 
-    return 'sid="%s", time="%s", ip="%s", age="%s", data="%s"' % (self.sid, self.time, self.ip, hruntime.time - self.time, data)
+    return 'hlib.session.Session(sid = \'%s\', time = \'%s\', ip = \'%s\', age = \'%s\', data = \'%s\')' % (self.sid, self.time, self.ip, hruntime.time - self.time, data)
 
   def __getattr__(self, name):
     if name == 'age':
       return hruntime.time - self.time
-
-    return super(Session, self).__getattr__(name)
 
   def __getstate__(self):
     d = self.__dict__.copy()

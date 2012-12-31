@@ -38,7 +38,9 @@ def start_session(user = None, tainted = False):
                                 and its id is saved to session.
   """
 
-  hruntime.session = hlib.http.session.Session.create()
+  if not hruntime.session or not hruntime.session.authenticated or hruntime.session.name != user.name:
+    hruntime.session = hlib.http.session.Session.create()
+
   hruntime.session.refresh_sid()
 
   hruntime.session.authenticated = True
@@ -49,7 +51,7 @@ def start_session(user = None, tainted = False):
     hruntime.session.tainted = tainted.name
 
   elif hasattr(hruntime.session, 'tainted'):
-    del hruntime.session.tainted
+    hruntime.session.tainted = False
 
   refresh_session()
 

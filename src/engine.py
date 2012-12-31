@@ -70,6 +70,9 @@ class Application(object):
     import hlib.api
     self.api_tokens		= hlib.api.ApiTokenCache(self.name, self)
 
+  def __repr__(self):
+    return '<hlib.engine.Application(\'%s\', %s, %s, <config>)>' % (self.name, self.root, self.db)
+
   @staticmethod
   def default_config(app_path):
     c = {}
@@ -169,7 +172,7 @@ class Request(object):
   requires_hosts	= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_hosts', False))
 
   is_prohibited		= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'prohibited', False))
-  is_tainted		= property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'tainted'))
+  is_tainted		= property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'tainted') and hruntime.session.tainted != False)
   is_authenticated	= property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'authenticated') and hruntime.session.authenticated == True)
 
   ips			= property(lambda self: [ipaddr.IPAddress(self.server_handler.client_address[0])] + ([ipaddr.IPAddress(ip.strip()) for ip in self.headers['X-Forwarded-For'].split(',')] if 'X-Forwarded-For' in self.headers else []))
@@ -249,7 +252,7 @@ class Request(object):
       for cookie in self.headers['Cookie'].split(';'):
         n, v = __parse_param(cookie)
 
-        self.cookies[n] = hlib.http.cookies.Cookie(n, value = v, server = self.server)
+        self.cookies[n] = hlib.http.cookies.Cookie(n, value = v, server = self.server, max_age = hruntime.app.config['sessions.time'])
 
     # Restore session if any
     sid_cookie_name = hruntime.app.config['sessions.cookie_name']
@@ -319,22 +322,29 @@ class Response(object):
     super(Response, self).__setattr__(name, value)
 
   def dumps(self):
+    req = hruntime.request
+
     self.headers['Connection'] = 'close'
 
-    if 'Host' in hruntime.request.headers:
-      self.headers['Host'] = hruntime.request.headers['Host']
+    if 'Host' in req.headers:
+      self.headers['Host'] = req.headers['Host']
 
     if hruntime.session != None:
       hruntime.session.save()
 
       sid_cookie_name = hruntime.app.config['sessions.cookie_name']
-      self.cookies[sid_cookie_name] = hlib.http.cookies.Cookie(sid_cookie_name, value = hruntime.session.sid, server = hruntime.request.server)
+      if sid_cookie_name not in req.cookies or req.cookies[sid_cookie_name].value != hruntime.session.sid:
+        session_cookie = hlib.http.cookies.Cookie(sid_cookie_name, value = hruntime.session.sid, server = req.server, max_age = hruntime.app.config['sessions.time'])
+      else:
+        session_cookie = req.cookies[sid_cookie_name]
+
+      self.cookies[sid_cookie_name] = session_cookie
 
     for name, cookie in self.cookies.iteritems():
       self.headers['Set-Cookie'] = '%s=%s; Max-Age=%s; Path=%s' % (cookie.name, urllib.quote(cookie.value), cookie.max_age, cookie.path)
 
     if self.output:
-      if hasattr(hruntime.request.server.config, 'compress') and hruntime.request.server.config.compress == True:
+      if hasattr(req.server.config, 'compress') and req.server.config.compress == True:
         compressed = hlib.compress.compress(self.output)
 
         self.raw_output = self.output
