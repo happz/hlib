@@ -79,9 +79,12 @@ def error_from_exception(e):
   elif len(e.message) != 0:
     msg = e.message
 
-  else:
+  elif hasattr(e, '_exceptions'):
     # pylint: disable-msg=W0212
     msg = e._exceptions[0][1].args[0]
+
+  else:
+    msg = repr(e)
 
   return BaseError(msg = msg, params = None, exception = e, exc_info = sys.exc_info())
 
