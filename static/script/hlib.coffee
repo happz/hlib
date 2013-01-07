@@ -79,14 +79,14 @@ class window.hlib.Ajax
 
     focus_elements = $(document.activeElement)
 
-    handle_ajax_error = (response, jqXHR, textStatus, errorThrown) ->
+    handle_ajax_error = (response, jqXHR, textStatus) ->
       h = window.hlib.get_handler opts, 'error', window.hlib.ajax_default_handlers
       if h
         h response, _ajax
         return
 
       console.log 'error called', textStatus
-      console.log jqXHR, errorThrown
+      console.log jqXHR
       window.hlib.ERROR.show 'Bad things are all around us. Check JS console'
 
     $.ajax
@@ -421,6 +421,7 @@ String.prototype.capitalize = () ->
   return @charAt(0).toUpperCase() + this.slice 1
 
 window.hlib.OPTS		= null
+window.hlib.MESSAGE		= null
 window.hlib.INFO		= null
 window.hlib.ERROR		= null
 window.hlib.WORKING		= null
@@ -433,12 +434,11 @@ window.hlib._g = (s) ->
   if s.length <= 0
     return ''
 
-  if window.settlers.i18n and window.settlers.i18n.tokens and window.settlers.i18n.tokens.hasOwnProperty s
-    return window.settlers.i18n.tokens[s]
+  if window.hlib.OPTS and window.hlib.OPTS.i18n_table and window.hlib.OPTS.i18n_table.hasOwnProperty s
+    return window.hlib.OPTS.i18n_table[s]
 
   console.log 'Unknown token: ' + s
-#  window.hlib.trace()
-  return s
+  s
 
 window.hlib.disable = (fid) ->
   if not $('#' + fid).hasClass 'disabled'
