@@ -11,8 +11,10 @@ __license__		= 'http://www.php-suit.com/dpl'
 __version__		= '3.0-rc1'
 
 import ConfigParser
+import htmlentitydefs
 import os.path
 import random
+import re
 import sys
 import threading
 import time
@@ -195,3 +197,22 @@ def register_event(cls):
   # pylint: disable-msg=W0621
   import hlib.events
   EVENTS[hlib.events.ename(cls)] = cls
+
+def unescape(text):
+  def fixup(m):
+    text = m.group(0)
+    if text[:2] == "&#":
+      try:
+        if text[:3] == "&#x":
+          return unichr(int(text[3:-1], 16))
+        else:
+          return unichr(int(text[2:-1]))
+      except ValueError:
+        pass
+    else:
+      try:
+        text = unichr(htmlentitydefs.name2codepoint[text[1:-1]])
+      except KeyError:
+        pass
+    return text
+  return re.sub("&#?\w+;", fixup, text)
