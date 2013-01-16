@@ -50,7 +50,7 @@ class BaseError(Exception):
       self.tb = traceback.extract_stack()[0:-1]
 
     self.name			= self.exc_info and self.exc_info[0].__name__ or '<Unknown exception>'
-    self.message		= self.msg.format(**self.params)
+    self.message		= self.msg % self.params
     self.file			= self.tb[-1][0]
     self.line			= self.tb[-1][1]
     with open(self.file, 'r') as f:
