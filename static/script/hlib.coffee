@@ -386,6 +386,9 @@ class window.hlib.Form
     @info = new FormInfo(@)
     @fields = {}
 
+    if not opts.hasOwnProperty 'timeout'
+      opts.timeout = 10000
+
     if not opts.hasOwnProperty 'clear_fields'
       opts.clear_fields = []
 
@@ -400,6 +403,7 @@ class window.hlib.Form
 
     @form_opts =
       dataType:		'json'
+      timeout:		_form.opts.timeout
       success:	(response) ->
         window.hlib.MESSAGE.hide()
 
