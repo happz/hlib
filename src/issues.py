@@ -1,6 +1,9 @@
+import collections
 import github
 
 import hlib.error
+
+Issue = collections.namedtuple('Issue', ['user', 'number', 'title', 'body', 'labels'])
 
 class IssuesError(hlib.error.BaseError):
   def __init__(self, gh_error, **kwargs):
@@ -29,6 +32,18 @@ class Repository(object):
 
     except Exception, e:
       raise IssuesError(e)
+
+  def get_issues(self):
+    try:
+      issues = []
+
+      for issue in self.repository.get_issues():
+        issues.append(Issue(None, issue.number, issue.title, issue.body, issue.labels))
+
+    except Exception, e:
+      raise IssuesError(e)
+
+    return issues
 
   def create_new_issue(self, title, body):
     try:
