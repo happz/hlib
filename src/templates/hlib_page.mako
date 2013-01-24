@@ -22,9 +22,14 @@
 <%def name="page_title()">
 </%def>
 
-<%def name="page_favicon()">
-  <link rel="shortcut icon" href="http://${basepath}/static/images/favicon.gif" type="image/gif" />
-  <link rel="icon" href="http://${basepath}/static/images/favicon.gif" type="image/gif" />
+<%def name="page_favicon(path_prefix = '/static/images/favicon/', tile_background = None)">
+  <link rel="apple-touch-icon" href="${path_prefix}/favicon-96px.png">
+  <link rel="icon" href="${path_prefix}/favicon-96px.png">
+  <!--[if IE]><link rel="shortcut icon" href="${path_prefix}/favicon-32px.ico"><![endif]-->
+  % if tile_background:
+    <meta name="msapplication-TileColor" content="#36932A">
+  % endif
+  <meta name="msapplication-TileImage" content="${path_prefix}/tileicon-96px.png">
 </%def>
 
 <%def name="page_style()">
@@ -37,8 +42,6 @@
   <title>${self.page_title()}</title>
 
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-
-  ${self.page_favicon()}
 
   <script type="text/javascript">
     $(document).ready(function() {
