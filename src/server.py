@@ -193,7 +193,7 @@ class ThreadPool(object):
     hlib.event.Hook('engine.RequestFinished',  'hlib.server.ThreadPool(%s)' % self.server.name, self.on_request_finished)
 
   # Event handlers
-  def on_thread_start(self, e):
+  def on_thread_start(self, _):
     hruntime.tid = threading.current_thread().name
 
     d = {
@@ -213,7 +213,7 @@ class ThreadPool(object):
 
       stats[self.stats_name]['Total threads started'] += 1
 
-  def on_thread_finished(self, e):
+  def on_thread_finished(self, _):
     from hlib.stats import stats, stats_lock
 
     with stats_lock:
@@ -221,19 +221,17 @@ class ThreadPool(object):
 
       stats[self.stats_name]['Total threads finished'] += 1
 
-  def on_request_connected(self, e):
+  def on_request_connected(self, _):
     from hlib.stats import stats, stats_lock
 
     with stats_lock:
       stats[self.stats_name]['Threads'][hruntime.tid]['Total requests'] += 1
 
-  def on_request_finished(self, e):
+  def on_request_finished(self, _):
     from hlib.stats import stats, stats_lock
 
-    # pylint: disable-msg=W0613
     with stats_lock:
       ri = hruntime.request
-      ro = hruntime.response
       t = time.time() - ri.ctime
 
       d = stats[self.stats_name]['Threads'][hruntime.tid]
@@ -305,7 +303,9 @@ class ThreadPool(object):
       del self.threads[hruntime.tid]
 
   def init_stats(self):
+    # pylint: disable-msg=W0621
     import hlib.stats
+
     hlib.stats.init_namespace('Pool (%s)' % self.server.name, {
       'Queue size':		lambda s: self.queue.qsize(),
       'Current threads':	lambda s: self.current_count,
@@ -322,7 +322,7 @@ class ThreadPool(object):
 
   def stop(self):
     with self.lock:
-      for i in range(0, self.current_count):
+      for _ in range(0, self.current_count):
         self.queue.put(None)
 
     sleep = True

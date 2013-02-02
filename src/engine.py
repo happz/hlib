@@ -447,14 +447,14 @@ class Engine(object):
 
     hruntime.__init_done	= True
 
-  def on_thread_finished(self, e):
+  def on_thread_finished(self, _):
     """
     Default hlib handler for C{engine.ThreadFinished} event.
     """
 
     hruntime.dbconn.close()
 
-  def on_request_connected(self, e):
+  def on_request_connected(self, _):
     from hlib.stats import stats, stats_lock
 
     d = {
@@ -465,22 +465,20 @@ class Engine(object):
       'Requested line':                 None
     }
 
-    # pylint: disable-msg=W0613
     with stats_lock:
       stats[self.stats_name]['Total requests'] += 1
       stats[self.stats_name]['Requests'][hruntime.tid] = d
 
-  def on_request_accepted(self, e):
+  def on_request_accepted(self, _):
     from hlib.stats import stats, stats_lock
 
-    # pylint: disable-msg=W0613
     with stats_lock:
       d = stats[self.stats_name]['Requests'][hruntime.tid]
 
       d['Client']                         = hlib.ips_to_str(hruntime.request.ips)
       d['Requested line']                 = hruntime.request.requested_line
 
-  def on_request_started(self, e):
+  def on_request_started(self, _):
     """
     Default hlib handler for C{engine.RequestStarted} event.
 
@@ -545,7 +543,7 @@ class Engine(object):
         hruntime.dont_commit = True
         raise hlib.http.Redirect('/admin/')
 
-  def on_request_finished(self, e):
+  def on_request_finished(self, _):
     """
     Default hlib handler for C{engine.RequestFinished} event.
 
@@ -586,7 +584,7 @@ class Engine(object):
 
     hlib.log.log_error(hlib.database.CommitFailedError())
 
-  def on_request_closed(self, e):
+  def on_request_closed(self, _):
     """
     Default hlib handler for C{engine.RequestFinished} event.
 
@@ -601,7 +599,7 @@ class Engine(object):
     with stats_lock:
       del stats[self.stats_name]['Requests'][hruntime.tid]
 
-  def on_engine_halted(self, e):
+  def on_engine_halted(self, _):
     """
     Default hlib handler for C{engine.Halted} event.
 

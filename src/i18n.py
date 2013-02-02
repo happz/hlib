@@ -73,6 +73,7 @@ class Language(hlib.database.DBObject):
     return d
 
   def __setstate__(self, d):
+    # pylint: disable-msg=W0201
     self.__dict__ = d
 
     if hlib.config['i18n.token_coverage'] == True:
@@ -105,6 +106,9 @@ class Language(hlib.database.DBObject):
 
     if self.coverage:
       self.coverage.removed(name)
+
+  def __len__(self):
+    return len(self.tokens)
 
 class Localization(hlib.database.DBObject):
   """

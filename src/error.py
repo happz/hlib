@@ -141,6 +141,7 @@ class InvalidInputError(BaseError):
     self.invalid_field		= invalid_field
 
   def args_for_reply(self):
+    # pylint: disable-msg=W0621
     import hlib.api
 
     return {'form': hlib.api.Form(orig_fields = True, invalid_field = self.invalid_field)}

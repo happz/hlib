@@ -48,6 +48,7 @@ def log_params():
 def log_access():
   params = log_params()
 
+  # pylint: disable-msg=W0142
   log_msg(hruntime.app.config['log.access.format'].format(**params), hruntime.app.channels.access)
 
 def log_error(e):

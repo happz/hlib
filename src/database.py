@@ -86,6 +86,7 @@ class DB(object):
 
     self.stats_name	= 'Database (%s)' % self.name
 
+    # pylint: disable-msg=W0621
     import hlib.stats
     hlib.stats.init_namespace(self.stats_name, {
       'Loads':		0,
@@ -100,10 +101,10 @@ class DB(object):
     hlib.event.Hook('engine.ThreadFinished', 'hlib.database.DB(%s)' % self.name, self.on_thread_finished)
     hlib.event.Hook('engine.RequestFinished', 'hlib.database.DB(%s)' % self.name, self.on_request_finished)
 
-  def on_thread_finished(self, e):
+  def on_thread_finished(self, _):
     self.update_stats()
 
-  def on_request_finished(self, e):
+  def on_request_finished(self, _):
     self.update_stats()
 
   def open(self):

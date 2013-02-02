@@ -136,7 +136,8 @@ class Runtime(threading.local):
     @param properties:		List of names of properties this module holds. Properties that are handled by C{__getattr__}/C{__setattr__} method are NOT included.
     """
 
-    if self.__init_done == True:
+    # pylint: disable-msg=E0203
+    if hasattr(self, '__init_done') and self.__init_done == True:
       raise SystemError('__init__ called too many times')
 
     # pylint: disable-msg=W0233
@@ -215,4 +216,4 @@ def unescape(text):
       except KeyError:
         pass
     return text
-  return re.sub("&#?\w+;", fixup, text)
+  return re.sub(r"&#?\w+;", fixup, text)

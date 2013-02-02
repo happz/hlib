@@ -47,7 +47,7 @@ class Repository(object):
 
   def create_new_issue(self, title, body):
     try:
-      issue = self.repository.create_issue(title, body = body)
+      self.repository.create_issue(title, body = body)
 
     except Exception, e:
       raise IssuesError(e)

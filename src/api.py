@@ -69,6 +69,7 @@ class ApiIORegime(hlib.handlers.IORegime):
       hlib.log.log_error(e)
 
       kwargs = e.args_for_reply()
+      # pylint: disable-msg=W0142
       return Reply(e.reply_status, error = Error(e), **kwargs).dump()
 
   @staticmethod
@@ -242,6 +243,16 @@ class ApiTokenCache(object):
           return user
 
       raise KeyError(key)
+
+  def __setitem__(self, key, value):
+    raise AttributeError(key)
+
+  def __delitem__(self, key):
+    raise AttributeError(key)
+
+  def __len__(self):
+    with self.lock:
+      return len(self.token_to_user)
 
   def __contains__(self, key):
     with self.lock:
