@@ -3,7 +3,8 @@ import github
 
 import hlib.error
 
-Issue = collections.namedtuple('Issue', ['user', 'number', 'title', 'body', 'labels'])
+IssueComment = collections.namedtuple('IssueComment', ['user', 'body'])
+Issue = collections.namedtuple('Issue', ['user', 'number', 'title', 'body', 'labels', 'comments'])
 
 class IssuesError(hlib.error.BaseError):
   def __init__(self, gh_error, **kwargs):
@@ -38,7 +39,7 @@ class Repository(object):
       issues = []
 
       for issue in self.repository.get_issues():
-        issues.append(Issue(None, issue.number, issue.title, issue.body, issue.labels))
+        issues.append(Issue(None, issue.number, issue.title, issue.body, issue.labels, [IssueComment(comment.user.login, comment.body) for comment in issue.get_comments()]))
 
     except Exception, e:
       raise IssuesError(e)
