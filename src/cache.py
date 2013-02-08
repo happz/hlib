@@ -66,7 +66,7 @@ class Cache(object):
       else:
         self.__inc_stats('Misses')
 
-      return chain.get(key, default = default)
+      return chain.get(key, default)
 
   def set(self, user, key, value):
     if not self.__check_caching_status(key):
