@@ -28,29 +28,6 @@ Library version tag
 @type:				C{string}
 """
 
-class Config(object):
-  """
-  Simple object, inherited from basic L{object}, used for "object-tree" style of configuration variables, with L{hlib.config} as root.
-  """
-
-  def dump(self, prefix):
-    """
-    Print all non-internal attributes of this object. If attribute is L{Config} child dump its attributes too (viva la recursion!)
-
-    @type prefix:		C{string}
-    @param prefix:		Path of names (joined by dot) that leads to this object.
-    """
-
-    for n in dir(self):
-      if n in ['__class__', '__delattr__', '__dict__', '__doc__', '__format__', '__getattribute__', '__hash__', '__init__', '__module__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'dump']:
-        continue
-
-      v = getattr(self, n)
-      if v.__class__ == self.__class__:
-        v.dump(prefix + '.' + n)
-      else:
-        print '%s.%s = "%s"' % (prefix, n, v)
-
 config = {}
 
 # pylint: disable-msg=W0201

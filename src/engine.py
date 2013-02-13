@@ -9,6 +9,7 @@ __copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
 __contact__             = 'happz@happz.cz'
 __license__             = 'http://www.php-suit.com/dpl'
 
+import collections
 import hashlib
 import ipaddr
 import os.path
@@ -33,6 +34,10 @@ import hlib.server
 
 # pylint: disable-msg=F0401
 import hruntime
+
+_AppChannels = collections.namedtuple('_AppChannels', ['access', 'error'])
+def AppChannels():
+  return _AppChannels([[], []])
 
 class Application(object):
   """
@@ -61,7 +66,7 @@ class Application(object):
     import hlib.cache
     self.cache			= hlib.cache.Cache('Global', self)
 
-    self.channels		= hlib.Config()
+    self.channels		= AppChannels()
     self.channels.access	= []
     self.channels.error		= []
 
