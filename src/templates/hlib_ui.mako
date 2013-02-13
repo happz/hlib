@@ -91,7 +91,7 @@ class Form(Element):
     return '</fieldset>' + super(Form, self).end()
 
 class InputElement(Element):
-  def __init__(self, name, form_name = None, label = None, size = None, value = None, disabled = False, required = False, help = None, placeholder = None, *args, **kwargs):
+  def __init__(self, name, form_name = None, label = None, size = None, value = None, disabled = False, required = False, help = None, placeholder = None, minimal_struct = False, *args, **kwargs):
     super(InputElement, self).__init__(name, *args, **kwargs)
 
     self.form_name		= form_name
@@ -101,12 +101,13 @@ class InputElement(Element):
     self.required		= required
     self.help			= help
     self.placeholder		= placeholder
+    self.minimal_struct		= minimal_struct
 
     if self.form_name != None:
       self.id			= hruntime.ui_form.raw_id + '_' + self.form_name
 
-    if size == 'xxlarge':
-      self.classes.append('input-xxlarge')
+    if size:
+      self.classes.append('input-' + size)
 
   def attrs(self):
     attrs = super(InputElement, self).attrs()
@@ -126,20 +127,26 @@ class InputElement(Element):
     return attrs
 
   def start(self):
-    s = '<div class="control-group">'
+    if self.minimal_struct:
+      s = ''
 
-    if self.label != None:
-      s += '<label class="control-label" for="' + hruntime.ui_form.raw_id + '_' + self.form_name + '">' + gettext(self.label) + '</label>'
+    else:
+      s = '<div class="control-group">'
 
-    s += '<div class="controls">' + super(InputElement, self).start()
+      if self.label != None:
+        s += '<label class="control-label" for="' + hruntime.ui_form.raw_id + '_' + self.form_name + '">' + gettext(self.label) + '</label>'
 
-    if self.help != None:
+      s += '<div class="controls">'
+
+    s += super(InputElement, self).start()
+
+    if self.minimal_struct == False and self.help != None:
       s += '<span class="help-block">' + gettext(self.help) + '</span>'
 
     return s
 
   def end(self):
-    return super(InputElement, self).end() + '</div></div>'
+    return super(InputElement, self).end() + ('' if self.minimal_struct else '</div></div>')
 
 class Select(InputElement):
   def __init__(self, default = False, *args, **kwargs):
