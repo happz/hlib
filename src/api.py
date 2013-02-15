@@ -105,13 +105,26 @@ api_token			= lambda f: hlib.handlers.tag_fn(f, 'ioregime', ApiTokenIORegime)
 #
 class JSONEncoder(json.JSONEncoder):
   """
-  Our custom JSON encoder, able to encode L{hlib.api.ApiJSON} objects.
+  Custom JSON encoder, able to encode L{hlib.api.ApiJSON} objects.
 
   @see:				http://docs.python.org/library/json.html#encoders-and-decoders
   """
 
   # pylint: disable-msg=E0202
   def default(self, o):
+    """
+    Return dictionary of field values if C{o} is instance of L{ApiJSON} class.
+
+    Only fields mentioned in o.API_FIELDS are exported.
+
+    @param o:			object to convert
+    @type o:			L{object}
+    @return:			If C{o} is instance of L{ApiJSON}, C{dict} of C{field}={o.field} pairs
+                                for C{field}s specified in C{o.API_FIELDS}. Return value of L{JSONEncoder.default}
+                                otherwise.
+    @rtype:			C{dict} or anything that L{JSONEncoder.default} returns
+    """
+
     return dict([[f, getattr(o, f)] for f in o.API_FIELDS]) if isinstance(o, ApiJSON) else super(JSONEncoder, self).default(o)
 
 class ApiJSON(object):
@@ -220,9 +233,24 @@ class Redirect(ApiJSON):
 # API Tokens
 #
 class ValidateAPIToken(hlib.input.SchemaValidator):
+  """
+  API token validator
+
+  API token must be
+    - string (L{hlib.input.CommonString})
+    - exactly 32 (length of MD5 username hash) + L{API_TOKEN_LENGTH} characters long (L{lib.input.MinLength}, L{hlib.input.MaxLength})
+  """
+
   api_token = hlib.input.validator_factory(hlib.input.CommonString(), hlib.input.MinLength(32 + API_TOKEN_LENGTH), hlib.input.MaxLength(32 + API_TOKEN_LENGTH))
 
 class ApiTokenCache(object):
+  """
+  Cache to store token => L{datalayer.User} bond at hand.
+
+  There is no other way how to find to which user belongs supplied token
+  than to walk through all users and look for token. Cache results.
+  """
+
   def __init__(self, name, app):
     super(ApiTokenCache, self).__init__()
 

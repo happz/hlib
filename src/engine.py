@@ -9,7 +9,6 @@ __copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
 __contact__             = 'happz@happz.cz'
 __license__             = 'http://www.php-suit.com/dpl'
 
-import collections
 import hashlib
 import ipaddr
 import os.path
@@ -35,9 +34,12 @@ import hlib.server
 # pylint: disable-msg=F0401
 import hruntime
 
-_AppChannels = collections.namedtuple('_AppChannels', ['access', 'error'])
-def AppChannels():
-  return _AppChannels([[], []])
+class AppChannels(object):
+  def __init__(self):
+    super(AppChannels, self).__init__()
+
+    self.access = []
+    self.error = []
 
 class Application(object):
   """
@@ -67,8 +69,6 @@ class Application(object):
     self.cache			= hlib.cache.Cache('Global', self)
 
     self.channels		= AppChannels()
-    self.channels.access	= []
-    self.channels.error		= []
 
     self.sessions		= None
 
@@ -489,9 +489,6 @@ class Engine(object):
 
     Prepare enviroment for (and based on) new request. Reset L{hruntime} properties to default values, start new db transaction, and check basic access controls for new request.
 
-    @type e:			L{hlib.events.engine.RequestStarted}
-    @param e:			Current event.
-
     @raise hlib.http.Prohibited:	Raised when requested resource is marked as prohibited (using L{hlib.handlers.prohibited})
     @raise hlib.http.Redirect:	Raised when requested resource is admin-access only (using L{hlib.handlers.require_admin}). Also can be raised by internal call to L{hlib.auth.check_session}.
     """
@@ -553,9 +550,6 @@ class Engine(object):
     Default hlib handler for C{engine.RequestFinished} event.
 
     Clean up after finished request. Log access into access log, commit (or rollback) database changes.
-
-    @type e:			L{hlib.events.engine.RequestFinished}
-    @param e:			Current event.
     """
 
     hlib.log.log_access()
@@ -594,9 +588,6 @@ class Engine(object):
     Default hlib handler for C{engine.RequestFinished} event.
 
     Clean up after finished request, and update statistics.
-
-    @type e:			L{hlib.events.engine.RequestFinished}
-    @param e:			Current event.
     """
 
     from hlib.stats import stats, stats_lock

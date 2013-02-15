@@ -1,3 +1,9 @@
+__author__		= 'Milos Prchlik'
+__copyright__		= 'Copyright 2010 - 2012, Milos Prchlik'
+__contact__		= 'happz@happz.cz'
+__license__		= 'http://www.php-suit.com/dpl'
+
+import sys
 import threading
 
 import hlib.stats
@@ -18,7 +24,7 @@ class Cache(object):
       hlib.stats.stats[self.stats_name] = {
         'Total objects':	lambda s: sum([len(chain) for chain in self.objects.values()]),
         'Total chains':		lambda s: len(self.objects),
-        'Total size':		lambda s: sum([sum([len(v) for v in chain.values()]) for chain in self.objects.values()]),
+        'Total size':		lambda s: sum([sum([sys.getsizeof(v) for v in chain.values()]) for chain in self.objects.values()]),
         'Hits':			0,
         'Misses':		0,
         'Inserts':		0,
@@ -123,6 +129,6 @@ class Cache(object):
     with self.lock:
       for user, chain in self.objects.items():
         for key, value in chain.items():
-          ret[user.name + ' - ' + key] = {'Type': str(type(value)).replace('<', '').replace('>', ''), 'Size': len(value)}
+          ret[user.name + ' - ' + key] = {'Type': str(type(value)).replace('<', '').replace('>', ''), 'Size': sys.getsizeof(value)}
 
     return ret

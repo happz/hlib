@@ -31,10 +31,10 @@ def start_session(user = None, tainted = False):
   """
   Start new session.
 
-  @type user:			L{lib.datalayer.User}
+  @type user:			L{datalayer.User}
   @param user:			If set, save its id and name into session.
   @type tainted:		C{bool}
-  @param tainted:		If not C{False}, L{lib.datalayer.User} is expected
+  @param tainted:		If not C{False}, L{datalayer.User} is expected
                                 and its id is saved to session.
   """
 

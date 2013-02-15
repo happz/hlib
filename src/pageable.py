@@ -45,7 +45,7 @@ class Pageable(object):
   def __init__(self, default_length = None):
     """
     Object used to get pages of items from any resource. Use as a parent of custom class,
-    and implement L{record_to_api} and L{get_records} methods.
+    and implement C{record_to_api} and C{get_records} methods.
 
     @param default_length: Number of items of requested page, when L{Pageable.get_page} is called without C{length} specified.
     @type default_length: C{int}
