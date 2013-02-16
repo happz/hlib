@@ -1,4 +1,5 @@
 <%!
+  import pprint
   import time
   import hlib
   import hruntime
@@ -46,6 +47,8 @@ Exception occured at ${error.file}:${error.line}
     % for name, value in hruntime.request.params.iteritems():
       ${name}: ${unicode(value).encode('ascii', 'replace')}
     % endfor
+
+  Info:${pprint.pformat(error.info)}
 
   Call stack:${trace().strip()}
 

@@ -492,6 +492,12 @@ window.hlib.trace = () ->
   trace = printStackTrace()
   console.log trace.join '\n'
 
+window.hlib.server_log = (payload) ->
+  data =
+    data:			$.toJSON payload
+
+  $.post '/log', data
+
 window.hlib._g = (s) ->
   if s.length <= 0
     return ''

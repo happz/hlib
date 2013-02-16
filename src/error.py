@@ -25,7 +25,7 @@ class BaseError(Exception):
   Top-level exception
   """
 
-  def __init__(self, msg = None, params = None, exception = None, exc_info = None, http_status = 500, reply_status = 500, dont_log = False):
+  def __init__(self, msg = None, params = None, exception = None, exc_info = None, http_status = 500, reply_status = 500, dont_log = False, info = None):
     """
     @type msg:			C{string}
     @param msg:			Optional text of exception
@@ -39,6 +39,7 @@ class BaseError(Exception):
     self.params			= params or {}
     self.exception		= exception
     self.exc_info		= exc_info
+    self.info			= info
 
     self.http_status		= http_status
     self.reply_status		= reply_status
@@ -178,3 +179,6 @@ class InvalidOutputError(BaseError):
     kwargs['reply_status']	= 500
 
     super(InvalidOutputError, self).__init__(**kwargs)
+
+class ClientSideError(BaseError):
+  pass
