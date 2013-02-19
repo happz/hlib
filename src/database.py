@@ -109,7 +109,7 @@ class DB(object):
 
   def open(self):
     storage = storage_classes[self.address.storage].open(self.address)
-    self.db = ZODB.DB(storage, pool_size = 15, **self.kwargs)
+    self.db = ZODB.DB(storage, **self.kwargs)
 
     self.db.setActivityMonitor(ZODB.ActivityMonitor.ActivityMonitor())
 
