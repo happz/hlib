@@ -523,8 +523,9 @@ window.hlib.enableIcon = (sel, callback) ->
     return false
 
 window.hlib.disableIcon = (sel) ->
-  $('a[rel=tooltip]').tooltip 'hide'
-  $('button[rel=tooltip]').tooltip 'hide'
+  if window.hlib.mobile == false
+    $('a[rel=tooltip]').tooltip 'hide'
+    $('button[rel=tooltip]').tooltip 'hide'
 
   $(sel).attr 'disabled', 'disabled'
   $(sel).unbind 'click'
@@ -653,3 +654,7 @@ window.hlib.setup = (opts) ->
 
   $(opts.message_dialog).modal
     show:			false
+
+  window.hlib.mobile = false
+  if $(opts.visibility_check_eid).css('display') == 'none'
+    window.hlib.mobile = true
