@@ -476,7 +476,7 @@ class window.hlib.Form
 # Methods
 #
 String.prototype.format = () ->
-  args = arguments;
+  args = arguments
   return @replace /\{(\d+)\}/g, (m, n) -> return args[n]
 
 String.prototype.capitalize = () ->
