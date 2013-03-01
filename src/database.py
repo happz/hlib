@@ -93,6 +93,7 @@ class DB(object):
       'Stores':		0,
       'Commits':		0,
       'Rollbacks':		0,
+      'Failed commits':		0,
       'Connections':	{},
       'Caches':		{}
     })
