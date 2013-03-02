@@ -386,6 +386,8 @@ class window.hlib.Form
     @info = new FormInfo(@)
     @fields = {}
 
+    _form = @
+
     if not opts.hasOwnProperty 'timeout'
       opts.timeout = 10000
 
@@ -398,8 +400,13 @@ class window.hlib.Form
     if not opts.hasOwnProperty 'submit_empty'
       opts.submit_empty = false
 
+    if not opts.hasOwnProperty 'refill'
+      opts.refill = false
+
+    if not opts.hasOwnProperty 'validate'
+      opts.validate = ($(@fid).attr('data-validate') == 'true')
+
     @opts = opts
-    _form = @
 
     @form_opts =
       dataType:		'json'
@@ -409,12 +416,12 @@ class window.hlib.Form
 
         _form.clear()
 
-        if response.status != 200 and opts.hasOwnProperty('refill') and opts.refill == true and response.form.hasOwnProperty('orig_fields')
+        if response.status != 200 and _form.opts.refill == true and response.form.hasOwnProperty('orig_fields')
           $(_form.field_id key).val value for own key, value of response.form.orig_fields
 
         handler_name = 's' + response.status
 
-        h = window.hlib.get_handler opts, handler_name, window.hlib.form_default_handlers
+        h = window.hlib.get_handler _form.opts, handler_name, window.hlib.form_default_handlers
         if h
           h response, _form
           return
@@ -422,7 +429,7 @@ class window.hlib.Form
         window.hlib.ERROR.show 'No handler for response status', 'Something is rotten in the state of Denmark... There is no handler for response status ' + response.status
 
       beforeSerialize:		(f, o) ->
-        if opts.submit_empty != true
+        if _form.opts.submit_empty != true
           f.find(':input[value=""]').attr 'disabled', 'disabled'
 
         return true
@@ -433,6 +440,33 @@ class window.hlib.Form
         _form.info._hide()
         if _form.last_invalid_field
           _form.last_invalid_field.unmark_error()
+
+        if _form.opts.validate
+          if _form.opts.validate
+            $(_form.fid).parsley
+              successClass:		null
+              errorClass:		null
+              errors:
+                errorsWrapper:		null
+                errorElem:		null
+              listeners:
+                onFieldValidate:	(elem) ->
+                  return not $(elem).is ':visible'
+
+                onFieldError:		(element, constraints, parsley_field) ->
+                  if _form.last_invalid_field
+                    return
+
+                  _form.last_invalid_field = _form.field($(element).attr 'name').mark_error()
+
+                  if parsley_field.options.errorMessage
+                    _form.info.error parsley_field.options.errorMessage
+
+            $(_form.fid).parsley 'validate'
+            $(_form.fid).parsley 'destroy'
+
+          if _form.last_invalid_field
+            return false
 
         window.hlib.WORKING.show()
         return true
@@ -446,10 +480,10 @@ class window.hlib.Form
 
     @clear()
 
-    if opts.hasOwnProperty 'focus'
-      $(@field_id opts.focus).focus()
+    if @opts.hasOwnProperty 'focus'
+      $(@field_id _form.opts.focus).focus()
 
-    (@field f).disable() for f in opts.disable_fields
+    (@field f).disable() for f in @opts.disable_fields
 
   submit:		() ->
     $(@fid).ajaxSubmit @form_opts
@@ -481,6 +515,10 @@ String.prototype.format = () ->
 
 String.prototype.capitalize = () ->
   return @charAt(0).toUpperCase() + this.slice 1
+
+unless Array::filter
+  Array::filter = (callback) ->
+    element for element in this when callback(element)
 
 window.hlib.OPTS		= null
 window.hlib.MESSAGE		= null

@@ -48,8 +48,10 @@ class Element(object):
     return '</%s>' % self.name
 
 class Form(Element):
-  def __init__(self, action = None, method = None, horizontal = True, legend = None, *args, **kwargs):
+  def __init__(self, action = None, method = None, horizontal = True, legend = None, validate = False, *args, **kwargs):
     super(Form, self).__init__('form', *args, **kwargs)
+
+    self.validate		= validate
 
     self.action			= action or ''
     self.method			= method or 'post'
@@ -71,6 +73,9 @@ class Form(Element):
     attrs['action'] = self.action
     attrs['method'] = self.method
 
+    if self.validate:
+      attrs['data-validate'] = 'true'
+
     return attrs
 
   def start(self):
@@ -91,7 +96,7 @@ class Form(Element):
     return '</fieldset>' + super(Form, self).end()
 
 class InputElement(Element):
-  def __init__(self, name, form_name = None, label = None, size = None, value = None, disabled = False, required = False, help = None, placeholder = None, minimal_struct = False, *args, **kwargs):
+  def __init__(self, name, form_name = None, label = None, size = None, value = None, disabled = False, required = False, help = None, placeholder = None, minimal_struct = False, validators = None, validation_message = None, *args, **kwargs):
     super(InputElement, self).__init__(name, *args, **kwargs)
 
     self.form_name		= form_name
@@ -109,6 +114,19 @@ class InputElement(Element):
     if size:
       self.classes.append('input-' + size)
 
+    self.validators = None
+    self.validation_message = validation_message or 'Please enter a value'
+
+    if validators:
+      self.validators = {}
+
+      for validator in validators.split(' '):
+        validator = validator.strip().split('=')
+	if len(validator) == 1:
+	  self.validators['data-' + validator[0]] = 'true'
+	elif len(validator) == 2:
+	  self.validators['data-%s' % validator[0]] = validator[1].replace('"', '')
+
   def attrs(self):
     attrs = super(InputElement, self).attrs()
 
@@ -123,6 +141,10 @@ class InputElement(Element):
 
     if self.placeholder != None:
       attrs['placeholder']	= self.placeholder
+
+    if self.validators:
+      attrs.update(self.validators)
+      attrs['data-error-message'] = self.validation_message
 
     return attrs
 
