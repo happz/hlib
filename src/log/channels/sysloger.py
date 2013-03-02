@@ -1,4 +1,3 @@
-import cherrypy._cplogging
 import logging
 import syslog
 
