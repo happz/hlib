@@ -85,9 +85,9 @@ class window.hlib.Ajax
         h response, _ajax
         return
 
-      console.log 'error called', textStatus
-      console.log jqXHR
-      window.hlib.ERROR.show 'Bad things are all around us. Check JS console'
+      window.hlib.submit_error
+        error_msg:              'AJAX failed'
+        text_status:            textStatus
 
     $.ajax
       dataType:		'json'
@@ -100,7 +100,7 @@ class window.hlib.Ajax
 
       statusCode:
         500:		() ->
-          window.hlib.ERROR.show 'Server unavailable', 'Oh no! Server suddenly went away. Be sure we are all freaking out - take a break, get a coffee, and try again in 5 minutes or so.'
+          window.hlib.ajax_default_handlers {message: 'Oh no! Server suddenly went away. Be sure we are all freaking out - take a break, get a coffee, and try again in 5 minutes or so.'}, _ajax
 
       beforeSend:	() ->
         if opts.show_spinner == true
@@ -121,14 +121,17 @@ class window.hlib.Ajax
 
             return
 
-          window.hlib.ERROR.show 'No handler for response status', 'Something is rotten in the state of Denmark... There is no handler for response status ' + response.status
+          window.hlib.submit_error
+            error_msg:          'No handler for response status'
+            status:             response.status
+            url:                opts.url
 
         else
-          handle_ajax_error response, jqXHR, textStatus, errorThrown
+          handle_ajax_error response, jqXHR, textStatus
 
       error:			(jqXHR, textStatus, errorThrown) ->
         response = $.parseJSON jqXHR.responseText
-        handle_ajax_error response, jqXHR, textStatus, errorThrown
+        handle_ajax_error response, jqXHR, textStatus
 
 class window.hlib.Tabs
   constructor:			(@eid) ->
@@ -426,7 +429,10 @@ class window.hlib.Form
           h response, _form
           return
 
-        window.hlib.ERROR.show 'No handler for response status', 'Something is rotten in the state of Denmark... There is no handler for response status ' + response.status
+        window.hlib.submit_error
+          error_msg:              'Form submit failed'
+          text_status:            textStatus
+
 
       beforeSerialize:		(f, o) ->
         if _form.opts.submit_empty != true
@@ -509,12 +515,14 @@ class window.hlib.Form
 #
 # Methods
 #
-String.prototype.format = () ->
-  args = arguments
-  return @replace /\{(\d+)\}/g, (m, n) -> return args[n]
+unless String::format
+  String::format = () ->
+    args = arguments
+    return @replace /\{(\d+)\}/g, (m, n) -> return args[n]
 
-String.prototype.capitalize = () ->
-  return @charAt(0).toUpperCase() + this.slice 1
+unless String::capitalize
+  String::capitalize = () ->
+    return @charAt(0).toUpperCase() + this.slice 1
 
 unless Array::filter
   Array::filter = (callback) ->
@@ -530,12 +538,6 @@ window.hlib.trace = () ->
   trace = printStackTrace()
   console.log trace.join '\n'
 
-window.hlib.server_log = (payload) ->
-  data =
-    data:			$.toJSON payload
-
-  $.post '/log', data
-
 window.hlib._g = (s) ->
   if s.length <= 0
     return ''
@@ -543,8 +545,13 @@ window.hlib._g = (s) ->
   if window.hlib.OPTS and window.hlib.OPTS.i18n_table and window.hlib.OPTS.i18n_table.hasOwnProperty s
     return window.hlib.OPTS.i18n_table[s]
 
-  console.log 'Unknown token: ' + s
-  s
+  error_data =
+    error_msg: 'Unknown token'
+    token:     s
+
+  window.hlib.submit_error error_data, true
+
+  return s
 
 window.hlib.disable = (fid) ->
   if not $('#' + fid).hasClass 'disabled'
@@ -682,7 +689,29 @@ window.hlib.ajax_default_handlers =
   h500:		(response, ajax) ->
     window.hlib.error 'Internal error', response.error
 
+window.hlib.submit_error = (data, dont_show) ->
+  data.page = window.location.href
+  data.useragent = $.browser
+
+  if not data.hasOwnProperty 'error_msg'
+    data.error_msg = 'Unknown error'
+
+  $.post '/submit_error', data, () ->
+
+  if dont_show
+    return
+
+  window.hlib.error 'Unhandled error',
+    message:    'Something unexpected has happened. Error report has been sent to server. Please, reload page using F5 key'
+    params:     null
+
 window.hlib.setup = (opts) ->
+  window.onerror = (error_msg, file, line_number) ->
+    window.hlib.submit_error
+      error_msg:                error_msg
+      file:                     file
+      line_number:              line_number
+
   window.hlib.OPTS = opts
 
   window.hlib.MESSAGE = new window.hlib.MessageDialog opts.message_dialog
