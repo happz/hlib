@@ -9,7 +9,11 @@ __license__             = 'http://www.php-suit.com/dpl'
 
 try:
   import bbcode
-  __do_tagize = bbcode.bb2xhtml
+  if hasattr(bbcode, 'bb2xhtml'):
+    __do_tagize = bbcode.bb2xhtml
+
+  else:
+    __do_tagize = lambda text: text
 
 except ImportError:
   __do_tagize = lambda text: text
