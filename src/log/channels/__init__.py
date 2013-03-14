@@ -15,6 +15,9 @@ class Channel(object):
   def log_error(self, error):
     pass
 
+  def close(self):
+    pass
+
   def reopen(self):
     pass
 
@@ -25,7 +28,7 @@ class StreamChannel(Channel):
     self.stream		= stream
 
   def do_log_message(self, msg):
-    print >> self.stream, msg
+    print >> self.stream, msg.encode('ascii', 'replace')
     self.stream.flush()
 
   def log_error(self, error):
