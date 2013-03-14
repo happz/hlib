@@ -114,6 +114,10 @@ class DB(object):
 
     self.db.setActivityMonitor(ZODB.ActivityMonitor.ActivityMonitor())
 
+  def close(self):
+    self.db.close()
+    self.db = None
+
   def connect(self):
     connection = self.db.open()
     self.root = connection.root()
