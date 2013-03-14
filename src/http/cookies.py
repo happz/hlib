@@ -36,7 +36,7 @@ class Cookie(object):
     self.server			= server
     self.name			= name
     self.value			= value and str(value) or ''
-    self.max_age		= max_age or (self.server and hasattr(self.server, 'cookie_max_age') and self.server.cookie_max_age or hlib.config['cookies.default_max_age'])
+    self.max_age		= int(max_age or (self.server and hasattr(self.server, 'cookie_max_age') and self.server.cookie_max_age or hlib.config['cookies.default_max_age']))
     self.path			= path or '/'
 
   def __repr__(self):
