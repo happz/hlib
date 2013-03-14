@@ -46,7 +46,7 @@ def start_session(user = None, tainted = False):
   hruntime.session.authenticated = True
   hruntime.session.name = user.name
 
-  if tainted != False:
+  if tainted:
     # pylint: disable-msg=E1101,E1103
     hruntime.session.tainted = tainted.name
 
@@ -63,7 +63,7 @@ def check_session(redirect_to_login = True):
   @raise hlib.http.Redirect:	Raised when there is no session started, redirect user to login page.
   """
 
-  if hruntime.request.is_authenticated == False:
+  if not hruntime.request.is_authenticated:
     if redirect_to_login == True:
       raise hlib.http.Redirect('/login/')
 
