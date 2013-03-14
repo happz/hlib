@@ -6,6 +6,9 @@ class Channel(hlib.log.channels.StreamChannel):
 
     self.path		= path
 
+  def close(self):
+    self.stream.close()
+
   def reopen(self):
     self.stream.close()
 
