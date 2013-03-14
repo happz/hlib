@@ -63,6 +63,11 @@ class RequestHandler(SocketServer.BaseRequestHandler):
       @param exc:		Exception that caused this function to be called. Or C{None} in case there was no exception that could be logged (standard errors like L{hlib.http.NotFound}, L{hlib.http.UnknownMethod}, etc.)
       """
       if exc:
+        import traceback
+        import sys
+
+        traceback.print_exc(file = sys.stderr)
+
         e = hlib.error.error_from_exception(exc)
         hlib.log.log_error(e)
 
@@ -399,6 +404,11 @@ class Server(SocketServer.TCPServer):
 
       # pylint: disable-msg=W0703
       except Exception, e:
+        import sys, traceback
+        print >> sys.stderr, '----- ----- ----- Raw exception info ----- ----- -----'
+        print >> sys.stderr, str(e)
+        print >> sys.stderr, traceback.format_exc()
+        print >> sys.stderr, '----- ----- ----- Raw exception info ----- ----- -----'
         e = hlib.error.error_from_exception(e)
         hlib.log.log_error(e)
 
@@ -442,3 +452,4 @@ class Server(SocketServer.TCPServer):
 
     self.shutdown()
     self.pool.stop()
+    self.socket.close()

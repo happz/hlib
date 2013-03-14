@@ -34,6 +34,9 @@ import hlib.server
 # pylint: disable-msg=F0401
 import hruntime
 
+ENGINES = []
+ENGINES_LOCK = threading.RLock()
+
 class AppChannels(object):
   def __init__(self):
     super(AppChannels, self).__init__()
@@ -178,7 +181,7 @@ class Request(object):
 
   is_prohibited		= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'prohibited', False))
   is_tainted		= property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'tainted') and hruntime.session.tainted != False)
-  is_authenticated	= property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'authenticated') and hruntime.session.authenticated == True)
+  is_authenticated = property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'authenticated') and hruntime.session.authenticated == True)
 
   ips			= property(lambda self: [ipaddr.IPAddress(self.server_handler.client_address[0])] + ([ipaddr.IPAddress(ip.strip()) for ip in self.headers['X-Forwarded-For'].split(',')] if 'X-Forwarded-For' in self.headers else []))
 
@@ -400,7 +403,8 @@ class Engine(object):
     self.stats_name		= 'Engine'
 
     # Set up event handlers
-    signal.signal(signal.SIGHUP, self.on_hup)
+    signal.signal(signal.SIGHUP, self.on_sighup)
+    signal.signal(signal.SIGUSR1, self.on_sigusr1)
     hlib.event.Hook('engine.ThreadStarted',    'hlib.engine.Engine', self.on_thread_start)
     hlib.event.Hook('engine.ThreadFinished'  , 'hlib.engine.Engine', self.on_thread_finished)
     hlib.event.Hook('engine.RequestConnected', 'hlib.engine.Engine', self.on_request_connected)
@@ -410,7 +414,10 @@ class Engine(object):
     hlib.event.Hook('engine.RequestClosed',    'hlib.engine.Engine', self.on_request_closed)
     hlib.event.Hook('engine.Halted',           'hlib.engine.Engine', self.on_engine_halted)
 
-  def on_hup(self, signum, frame):
+    with ENGINES_LOCK:
+      ENGINES.append(self)
+
+  def on_sighup(self, signum, frame):
     if signum != signal.SIGHUP:
       return
 
@@ -423,6 +430,33 @@ class Engine(object):
         c.reopen()
       for c in app.channels.error:
         c.reopen()
+
+  def on_sigusr1(self, signum, frame):
+    if signum != signal.SIGUSR1:
+      return
+
+    with ENGINES_LOCK:
+      for engine in ENGINES:
+        for server in engine.servers:
+          server.stop()
+
+      for engine in ENGINES:
+        for app in engine.apps.values():
+          for c in app.channels.access:
+            c.close()
+
+          for c in app.channels.error:
+            c.close()
+
+          if not app.db:
+            continue
+
+          app.db.close()
+          app.db = None
+
+    print 'Restarting application'
+
+    os.execv(sys.argv[0], sys.argv[:])
 
   def on_thread_start(self, e):
     """
