@@ -96,7 +96,7 @@ class Form(Element):
     return '</fieldset>' + super(Form, self).end()
 
 class InputElement(Element):
-  def __init__(self, name, form_name = None, label = None, size = None, value = None, disabled = False, required = False, help = None, placeholder = None, minimal_struct = False, validators = None, validation_message = None, *args, **kwargs):
+  def __init__(self, name, form_name = None, label = None, size = None, value = None, disabled = False, required = False, help = None, placeholder = None, minimal_struct = False, validators = None, validation_message = None, autocomplete = False, *args, **kwargs):
     super(InputElement, self).__init__(name, *args, **kwargs)
 
     self.form_name		= form_name
@@ -107,6 +107,7 @@ class InputElement(Element):
     self.help			= help
     self.placeholder		= placeholder
     self.minimal_struct		= minimal_struct
+    self.autocomplete = autocomplete
 
     if self.form_name != None:
       self.id			= hruntime.ui_form.raw_id + '_' + self.form_name
@@ -122,10 +123,11 @@ class InputElement(Element):
 
       for validator in validators.split(' '):
         validator = validator.strip().split('=')
-	if len(validator) == 1:
-	  self.validators['data-' + validator[0]] = 'true'
-	elif len(validator) == 2:
-	  self.validators['data-%s' % validator[0]] = validator[1].replace('"', '')
+
+        if len(validator) == 1:
+          self.validators['data-' + validator[0]] = 'true'
+        elif len(validator) == 2:
+          self.validators['data-%s' % validator[0]] = validator[1].replace('"', '')
 
   def attrs(self):
     attrs = super(InputElement, self).attrs()
@@ -145,6 +147,9 @@ class InputElement(Element):
     if self.validators:
       attrs.update(self.validators)
       attrs['data-error-message'] = self.validation_message
+
+    if self.autocomplete:
+      attrs['autocomplete'] = 'on'
 
     return attrs
 
