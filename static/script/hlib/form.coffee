@@ -164,6 +164,10 @@ class window.hlib.Form
         h500:		(response, form) ->
           window.hlib.error 'Internal error', response.error
 
+        # Called after all handlers
+        after: (response, form) ->
+          return
+
     _form = @
 
     @opts = $.extend true, {}, @default_options, opts
@@ -198,6 +202,8 @@ class window.hlib.Form
 
         handler = _form.opts.handlers[handler_name]
         handler response, _form
+
+        _form.opts.handlers.after response, _form
 
       beforeSerialize: (f, o) ->
         if _form.opts.submit_empty != true
