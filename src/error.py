@@ -75,7 +75,7 @@ def error_from_exception(e):
     return e
 
   if len(e.args) != 0:
-    msg = ':'.join([unicode(i).encode('ascii', 'replace') for i in e.args])
+    msg = ':'.join([unicode(i).decode('utf8', 'replace').encode('ascii', 'replace') for i in e.args])
 
   elif len(e.message) != 0:
     msg = e.message
