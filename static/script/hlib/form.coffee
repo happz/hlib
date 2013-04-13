@@ -130,6 +130,8 @@ class window.hlib.Form
       submit_empty:     false
       refill:           false
       validate:         null
+      validators:       {}
+      validator:        null
       handlers:
         # Everything is all right
         h200: (response, form) ->
@@ -221,14 +223,16 @@ class window.hlib.Form
         if _form.opts.validate
           if _form.opts.validate
             $(_form.fid).parsley
+              showErrors: false
               successClass:		null
               errorClass:		null
               errors:
                 errorsWrapper:		null
                 errorElem:		null
+              validators: _form.opts.validators
               listeners:
                 onFieldValidate:	(elem) ->
-                  return not $(elem).is ':visible'
+                  return not $(elem).is(':visible')
 
                 onFieldError:		(element, constraints, parsley_field) ->
                   if _form.last_invalid_field
