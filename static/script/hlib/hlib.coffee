@@ -69,8 +69,9 @@ window.hlib.disableIcon = (sel) ->
     return false
 
 window.hlib.bind_tooltips = () ->
-  $('a[rel=tooltip]').tooltip()
-  $('button[rel=tooltip]').tooltip()
+  if window.hlib.mobile == false
+    $('a[rel=tooltip]').tooltip()
+    $('button[rel=tooltip]').tooltip()
 
 window.hlib.dump = (arr, level) ->
   dumped_text = ''
