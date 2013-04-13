@@ -39,6 +39,7 @@ class window.hlib.Pager
 
     $.extend data, _pager.opts.data
 
+    window.hlib.WORKING.show()
     new window.hlib.Ajax
       url:		_pager.opts.url
       data:		data
