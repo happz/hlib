@@ -47,6 +47,9 @@ class HTTPError(hlib.error.BaseError):
 
     self.requested_url = hruntime.request.requested
 
+class BadRequest(HTTPError):
+  pass
+
 class NotFound(HTTPError):
   pass
 

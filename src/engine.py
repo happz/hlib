@@ -10,15 +10,22 @@ __contact__             = 'happz@happz.cz'
 __license__             = 'http://www.php-suit.com/dpl'
 
 import hashlib
+import http_parser.util
 import ipaddr
 import os.path
 import pprint
 import signal
+import StringIO
 import sys
 import threading
 import time
 import urllib
 import UserDict
+
+try:
+  import http_parser.parser as HTTPParser
+except ImportError:
+  import http_parser.pyparser as HTTPParser
 
 import hlib
 import hlib.auth
@@ -146,6 +153,13 @@ class HeaderMap(UserDict.UserDict):
   def __delitem__(self, name):
     UserDict.UserDict.__delitem__(self, name.title())
 
+class MultipartPiece(object):
+  def __init__(self):
+    super(MultipartPiece, self).__init__()
+
+    self.headers = HeaderMap()
+    self.data = None
+
 class Request(object):
   def __init__(self, server_handler):
     super(Request, self).__init__()
@@ -153,7 +167,9 @@ class Request(object):
     self.server_handler	= server_handler
     self.server		= self.server_handler.server
 
-    self.input          = ''
+    self.input          = []
+    self.parts = []
+    self.parser         = HTTPParser.HttpParser()
 
     self.base		= None
     self.cookies        = {}
@@ -187,56 +203,55 @@ class Request(object):
 
   def read_data(self, socket):
     while True:
-      t = socket.recv(1024)
+      data = socket.recv(1024)
 
-      if len(t) <= 0:
+      if not data:
         break
 
-      self.input += t
+      len_recv = len(data)
+      len_parsed = self.parser.execute(data, len_recv)
 
-      l = len(t)
-      self.read_bytes += l
+      if len_recv != len_parsed:
+        raise hlib.http.BadRequest()
 
-      if l < 1024:
+      if self.parser.is_partial_body():
+        self.input.append(self.parser.recv_body())
+
+      self.read_bytes += len_recv
+
+      if self.parser.is_message_complete():
         break
 
   def parse_data(self):
-    lines = self.input.split('\n')
+    if not self.parser.is_headers_complete():
+      raise hlib.http.BadRequest()
 
-    # Parse headers
-    i = 0
-    for i in range(0, len(lines)):
-      line = lines[i].strip()
+    if not self.parser.is_message_complete():
+      raise hlib.http.BadRequest()
 
-      if len(line) == 0:
-        break
+    if self.parser.get_method().lower() not in ['get', 'post']:
+      raise hlib.http.UnknownMethod(self.parser.get_method())
 
-      if i == 0:
-        self.requested_line = line
+    self.input = http_parser.util.b('').join(self.input).strip()
 
-        line = [t for t in line.split(' ') if len(t) > 0]
+    self.requested_line = '%s %s' % (self.parser.get_method(), self.parser.get_path())
+    self.requested = self.parser.get_path()
 
-        self.method = line[0].lower()
-        if self.method not in ['get', 'post']:
-          raise hlib.http.UnknownMethod(self.method)
- 
-        self.requested = line[1]
+    for key, value in self.parser.get_headers().items():
+      self.headers[key] = value
 
-        continue
-
-      line = line.split(':')
-      self.headers[line[0].title()] = ':'.join(line[1:]).strip()
-
-    post_data = lines[i + 1].strip()
+    post_data = self.input.strip()
 
     if 'Host' in self.headers:
       self.base = self.headers['Host']
 
     def __parse_param(s):
       l = s.strip().split('=')
-      n = l.pop(0).strip()
-      v = '='.join(l)
-      v = urllib.unquote_plus(v.strip())
+      if len(l) < 2:
+        raise hlib.http.BadRequest()
+
+      n = l[0].strip()
+      v = urllib.unquote_plus('='.join(l[1:]).strip())
 
       return (n, v)
 
@@ -247,13 +262,51 @@ class Request(object):
         self.params[n] = v
 
     # Parse GET params
-    i = self.requested.find('?')
-    if i != -1:
-      __parse_params(self.requested[i + 1:])
+    if len(self.parser.get_query_string()) > 0:
+      __parse_params(self.parser.get_query_string())
 
     # Parse POST params
-    if len(post_data) > 0:
-      __parse_params(post_data)
+    if 'Content-Type' in self.headers:
+      ct = self.headers['Content-Type']
+
+      if ct.startswith('application/x-www-form-urlencoded'):
+        if len(self.input) <= 0:
+          raise hlib.http.BadRequest('Content-Type == x-www-form-urlencoded and empty body')
+
+        __parse_params(self.input)
+
+      elif ct.startswith('multipart/form-data'):
+        i = ct.find('boundary=')
+        if i < 0:
+          raise hlib.http.BadRequest('Content-Type == multipart/form-data and no boundary')
+        boundary = '--' + ct[i + len('boundary='):]
+
+        start = self.input.find(boundary, 0)
+        if start < 0:
+          raise hlib.http.BadRequest('Inconsistent boundary')
+
+        end = self.input.find(boundary, start + 1)
+        if end < 0:
+          raise hlib.http.BadRequest('Inconsistent boundary')
+
+        stream = StringIO.StringIO(self.input[start:end])
+        piece = MultipartPiece()
+
+        while True:
+          l = stream.readline().strip()
+          if len(l) <= 0:
+            break
+
+          if l == boundary:
+            continue
+
+          k = l.split(':')
+          if len(k) != 2:
+            raise hlib.http.BadRequest('Malformed header in multipart piece: "%s"' % l)
+          piece.headers[k[0].strip()] = k[1].strip()
+
+        piece.data = stream.read()
+        self.parts.append(piece)
 
     # Parse cookies
     if 'Cookie' in self.headers:
