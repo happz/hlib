@@ -1,5 +1,6 @@
 <%!
 
+import re
 import hlib.i18n
 
 import hruntime
@@ -48,7 +49,7 @@ class Element(object):
     return '</%s>' % self.name
 
 class Form(Element):
-  def __init__(self, action = None, method = None, horizontal = True, legend = None, validate = False, *args, **kwargs):
+  def __init__(self, action = None, method = None, horizontal = True, legend = None, validate = False, enctype = None, *args, **kwargs):
     super(Form, self).__init__('form', *args, **kwargs)
 
     self.validate		= validate
@@ -56,6 +57,7 @@ class Form(Element):
     self.action			= action or ''
     self.method			= method or 'post'
     self.legend			= legend
+    self.enctype    = enctype
 
     self.current_element	= None
 
@@ -75,6 +77,9 @@ class Form(Element):
 
     if self.validate:
       attrs['data-validate'] = 'true'
+
+    if self.enctype:
+      attrs['enctype'] = self.enctype
 
     return attrs
 
@@ -96,7 +101,7 @@ class Form(Element):
     return '</fieldset>' + super(Form, self).end()
 
 class InputElement(Element):
-  def __init__(self, name, form_name = None, label = None, size = None, value = None, disabled = False, required = False, help = None, placeholder = None, minimal_struct = False, validators = None, validation_message = None, autocomplete = False, *args, **kwargs):
+  def __init__(self, name, form_name = None, label = None, size = None, value = None, disabled = False, required = False, help = None, placeholder = None, minimal_struct = False, validators = None, validation_message = None, autocomplete = False, accept = None, *args, **kwargs):
     super(InputElement, self).__init__(name, *args, **kwargs)
 
     self.form_name		= form_name
@@ -108,6 +113,7 @@ class InputElement(Element):
     self.placeholder		= placeholder
     self.minimal_struct		= minimal_struct
     self.autocomplete = autocomplete
+    self.accept = accept
 
     if self.form_name != None:
       self.id			= hruntime.ui_form.raw_id + '_' + self.form_name
@@ -121,13 +127,14 @@ class InputElement(Element):
     if validators:
       self.validators = {}
 
-      for validator in validators.split(' '):
-        validator = validator.strip().split('=')
+      matcher = r'(\w+)(?:="(.*?)")?'
+      matches = re.findall(matcher, validators.strip())
 
-        if len(validator) == 1:
-          self.validators['data-' + validator[0]] = 'true'
-        elif len(validator) == 2:
-          self.validators['data-%s' % validator[0]] = validator[1].replace('"', '')
+      for validator in matches:
+        if len(validator[1]) == 0:
+          self.validators['data-%s' % validator[0]] = 'true'
+        else:
+          self.validators['data-%s' % validator[0]] = validator[1]
 
   def attrs(self):
     attrs = super(InputElement, self).attrs()
@@ -150,6 +157,9 @@ class InputElement(Element):
 
     if self.autocomplete:
       attrs['autocomplete'] = 'on'
+
+    if self.accept:
+      attrs['accept'] = self.accept
 
     return attrs
 
