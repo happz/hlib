@@ -7,21 +7,8 @@ __copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
 __contact__             = 'happz@happz.cz'
 __license__             = 'http://www.php-suit.com/dpl'
 
-try:
-  import bbcode
-  if hasattr(bbcode, 'bb2xhtml'):
-    __do_tagize = bbcode.bb2xhtml
-
-  else:
-    __do_tagize = lambda text: text
-
-except ImportError:
-  __do_tagize = lambda text: text
-
+import markdown2
 import hlib
-
-def _do_tagize(text):
-  return bbcode.bb2xhtml(text)
 
 # pylint: disable-msg=W0613
 def tagize(text):
@@ -32,4 +19,4 @@ def tagize(text):
   @param text:			Text to be processed.
   """
 
-  return __do_tagize(text)
+  return markdown2.markdown(text)
