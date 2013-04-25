@@ -190,7 +190,7 @@ class window.hlib.Form
 
         _form.clear()
 
-        if response.status != 200 and _form.opts.refill == true and response.form.hasOwnProperty('orig_fields')
+        if response.status != 200 and _form.opts.refill == true and response.hasOwnProperty('form') and response.form.hasOwnProperty('orig_fields')
           $(_form.field_id key).val value for own key, value of response.form.orig_fields
 
         handler_name = 's' + response.status
