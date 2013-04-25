@@ -199,7 +199,15 @@ class Request(object):
   is_tainted		= property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'tainted') and hruntime.session.tainted != False)
   is_authenticated = property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'authenticated') and hruntime.session.authenticated == True)
 
-  ips			= property(lambda self: [ipaddr.IPAddress(self.server_handler.client_address[0])] + ([ipaddr.IPAddress(ip.strip()) for ip in self.headers['X-Forwarded-For'].split(',')] if 'X-Forwarded-For' in self.headers else []))
+  @property
+  def ips(self):
+    try:
+      return [ipaddr.IPAddress(self.server_handler.client_address[0])] + ([ipaddr.IPAddress(ip.strip()) for ip in self.headers['X-Forwarded-For'].split(',')] if 'X-Forwarded-For' in self.headers else [])
+    except ValueError, e:
+      print >> sys.stderr, '----- ----- Invalid IP address ----- -----'
+      print >> sys.stderr, e
+      print >> sys.stderr, 'Client address:', self.server_handler.client_address
+      print >> sys.stderr, 'X-Forwarded-For:', self.headers['X-Forwarded-For']
 
   def read_data(self, socket):
     while True:
@@ -229,9 +237,6 @@ class Request(object):
     if not self.parser.is_message_complete():
       raise hlib.http.BadRequest()
 
-    if self.parser.get_method().lower() not in ['get', 'post']:
-      raise hlib.http.UnknownMethod(self.parser.get_method())
-
     self.input = http_parser.util.b('').join(self.input).strip()
 
     self.requested_line = '%s %s' % (self.parser.get_method(), self.parser.get_path())
@@ -244,6 +249,9 @@ class Request(object):
 
     if 'Host' in self.headers:
       self.base = self.headers['Host']
+
+    if self.parser.get_method().lower() not in ['get', 'post']:
+      raise hlib.http.UnknownMethod(self.parser.get_method())
 
     def __parse_param(s):
       l = s.strip().split('=')
@@ -261,6 +269,16 @@ class Request(object):
 
         self.params[n] = v
 
+    # Parse cookies
+    if 'Cookie' in self.headers:
+      for cookie in self.headers['Cookie'].split(';'):
+        n, v = __parse_param(cookie)
+        self.cookies[n] = hlib.http.cookies.Cookie(n, value = v, server = self.server, max_age = hruntime.app.config['sessions.time'])
+
+    for cookie in self.cookies.values():
+      if cookie.name.startswith('SpryMedia_DataTables'):
+        cookie.delete()
+
     # Parse GET params
     if len(self.parser.get_query_string()) > 0:
       __parse_params(self.parser.get_query_string())
@@ -271,9 +289,10 @@ class Request(object):
 
       if ct.startswith('application/x-www-form-urlencoded'):
         if len(self.input) <= 0:
-          raise hlib.http.BadRequest('Content-Type == x-www-form-urlencoded and empty body')
-
-        __parse_params(self.input)
+          pass
+          #raise hlib.http.BadRequest('Content-Type == x-www-form-urlencoded and empty body')
+        else:
+          __parse_params(self.input)
 
       elif ct.startswith('multipart/form-data'):
         i = ct.find('boundary=')
@@ -307,13 +326,6 @@ class Request(object):
 
         piece.data = stream.read()
         self.parts.append(piece)
-
-    # Parse cookies
-    if 'Cookie' in self.headers:
-      for cookie in self.headers['Cookie'].split(';'):
-        n, v = __parse_param(cookie)
-
-        self.cookies[n] = hlib.http.cookies.Cookie(n, value = v, server = self.server, max_age = hruntime.app.config['sessions.time'])
 
     # Restore session if any
     sid_cookie_name = hruntime.app.config['sessions.cookie_name']
