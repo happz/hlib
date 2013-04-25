@@ -38,7 +38,7 @@ class Repository(object):
     self.repository_name = repository_name
 
     try:
-      self.gh = github.Github(self.token)
+      self.gh = github.Github(self.token, user_agent = 'hlib (https://github.com/happz/hlib)')
       self.user = self.gh.get_user()
       self.repository = self.user.get_repo(self.repository_name)
 
