@@ -95,6 +95,10 @@ class RequestHandler(SocketServer.BaseRequestHandler):
         req.parse_data()
 
       # pylint: disable-msg=W0703
+      except hlib.http.NotFound:
+        __fail(404)
+        break
+
       except Exception, e:
         __fail(400, exc = e)
         break
@@ -405,9 +409,10 @@ class Server(SocketServer.TCPServer):
       # pylint: disable-msg=W0703
       except Exception, e:
         import sys, traceback
+        saved_info = sys.exc_info()
         print >> sys.stderr, '----- ----- ----- Raw exception info ----- ----- -----'
-        print >> sys.stderr, str(e)
-        print >> sys.stderr, traceback.format_exc()
+        print >> sys.stderr, 'Exc info:', saved_info
+        print >> sys.stderr, ''.join(traceback.format_exception(*saved_info))
         print >> sys.stderr, '----- ----- ----- Raw exception info ----- ----- -----'
         e = hlib.error.error_from_exception(e)
         hlib.log.log_error(e)
