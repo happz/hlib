@@ -208,6 +208,7 @@ class Request(object):
       print >> sys.stderr, e
       print >> sys.stderr, 'Client address:', self.server_handler.client_address
       print >> sys.stderr, 'X-Forwarded-For:', self.headers['X-Forwarded-For']
+      return []
 
   def read_data(self, socket):
     while True:
