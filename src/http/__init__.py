@@ -48,7 +48,9 @@ class HTTPError(hlib.error.BaseError):
     self.requested_url = hruntime.request.requested
 
 class BadRequest(HTTPError):
-  pass
+  def __init__(self, *args, **kwargs):
+    kwargs['dont_log'] = True
+    super(HTTPError, self).__init__(*args, **kwargs)
 
 class NotFound(HTTPError):
   pass
@@ -63,4 +65,6 @@ class Prohibited(HTTPError):
   pass
 
 class UnknownMethod(HTTPError):
-  pass
+  def __init__(self, *args, **kwargs):
+    kwargs['dont_log'] = True
+    super(HTTPError, self).__init__(*args, **kwargs)
