@@ -202,7 +202,25 @@ class Request(object):
   @property
   def ips(self):
     try:
-      return [ipaddr.IPAddress(self.server_handler.client_address[0])] + ([ipaddr.IPAddress(ip.strip()) for ip in self.headers['X-Forwarded-For'].split(',')] if 'X-Forwarded-For' in self.headers else [])
+      if 'X-Forwarded-For' not in self.headers:
+        return [ipaddr.IPAddress(self.server_handler.client_address[0])]
+
+      entries = [e.strip() for e in self.headers['X-Forwarded-For'].split(',')]
+      filtered_entries = []
+
+      while len(entries) > 0:
+        entry = entries.pop(0)
+        if len(entry.split('.')) < 4:
+          entry = entry + entries.pop(0)
+        filtered_entries.append(entry)
+
+      entries = [e.strip() for e in self.headers['X-Forwarded-For'].split(',')]
+
+      if len(entries) != len(filtered_entries):
+        print >> sys.stderr, 'Bad X-Forwarded-For: "%s" vs "%s"' % (str(entries), str(filtered_entries))
+
+      return [ipaddr.IPAddress(self.server_handler.client_address[0])] + ([ipaddr.IPAddress(ip.strip()) for ip in filtered_entries])
+
     except ValueError, e:
       print >> sys.stderr, '----- ----- Invalid IP address ----- -----'
       print >> sys.stderr, e
@@ -680,8 +698,7 @@ class Engine(object):
       return
 
     __update_stats('Failed commits')
-
-    hlib.log.log_error(hlib.database.CommitFailedError())
+    hruntime.db.rollback()
 
   def on_request_closed(self, _):
     """
