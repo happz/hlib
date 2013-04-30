@@ -144,8 +144,8 @@ class DB(object):
       print >> sys.stderr, '  data: ' + str(e.args)
       print >> sys.stderr, '  info: ' + str(e.serials)
 
-      print traceback.format_exc()
-      print e
+      #print traceback.format_exc()
+      #print e
 
       return False
 
@@ -202,6 +202,42 @@ class DBObject(persistent.Persistent):
 
   def __getattr__(self, name):
     raise AttributeError(name)
+
+  def __resolve_conflict_diff(self, oldState, savedState, newState):
+    diff = []
+
+    for key in oldState.keys():
+      value = oldState[key]
+      if value != savedState[key] or value != newState[key]:
+        diff.append(key)
+
+    return diff
+
+  def __resolve_conflict(self, key, oldState, savedState, newState, resultState):
+    return False
+
+  def _p_resolveConflict(self, oldState, savedState, newState):
+    # just log and fail
+    resolved = True
+    resultState = savedState.copy()
+
+    try:
+      print >> sys.stderr, 'DB Conflict detected:'
+
+      diff = self.__resolve_conflict_diff(oldState, savedState, newState)
+      print >> sys.stderr, '  Conflicting keys: %s' % ', '.join(diff)
+
+      for key in diff:
+        if self.__resolve_conflict(key, oldState, savedState, newState, resultState) != True:
+	  print >> sys.stderr, '  Key %s unresolved' % key
+	  resolved = False
+
+    except Exception, e:
+      print >> sys.stderr, 'DB Conflict prints failed'
+      print >> sys.stderr, e
+
+    finally:
+      return None if resolved == False else resultState
 
 class IndexedMapping(DBObject):
   def __init__(self, first_key = None, *args, **kwargs):
