@@ -63,7 +63,7 @@ class ApiIORegime(hlib.handlers.IORegime):
       raise e
 
     except Exception, e:
-      hruntime.dont_commit = True
+      hruntime.db.doom()
 
       e = hlib.error.error_from_exception(e)
       hlib.log.log_error(e)
