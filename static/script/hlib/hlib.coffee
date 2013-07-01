@@ -1,4 +1,5 @@
 window.hlib ?= {}
+window.hlib.ajax ?= {}
 
 #
 # Methods
@@ -22,9 +23,13 @@ window.hlib.INFO		= null
 window.hlib.ERROR		= null
 window.hlib.WORKING		= null
 
+window.hlib.log = (s) ->
+  if console and console.log
+    console.log s
+
 window.hlib.trace = () ->
   trace = printStackTrace()
-  console.log trace.join '\n'
+  window.hlib.log trace.join '\n'
 
 window.hlib._g = (s) ->
   if s.length <= 0
@@ -43,6 +48,28 @@ window.hlib._g = (s) ->
   window.hlib.submit_error error_data, true
 
   return s
+
+window.hlib.ajax.call = (type, url, data, callback) ->
+  xhr = new XMLHttpRequest()
+  fd = null
+
+  xhr.open type, url
+
+  if type == 'POST' and data
+    fd = new FormData()
+    fd.append(key, JSON.stringify(data[key])) for key of data
+
+  xhr.onload = () ->
+    callback JSON.parse xhr.response
+
+  if data
+    xhr.send fd
+
+window.hlib.ajax.get = (url, data, callback) ->
+  window.hlib.ajax.call 'GET', url, data, callback
+
+window.hlib.ajax.update = (url, data, callback) ->
+  window.hlib.ajax.call 'POST', url, data, callback
 
 window.hlib.disable = (fid) ->
   if not $('#' + fid).hasClass 'disabled'
@@ -129,6 +156,7 @@ window.hlib.error = (label, error, beforeClose) ->
 window.hlib.submit_error = (data, dont_show) ->
   data.page = window.location.href
   data.useragent = $.browser
+  data.trace = printStackTrace()
 
   if not data.hasOwnProperty 'error_msg'
     data.error_msg = 'Unknown error'
