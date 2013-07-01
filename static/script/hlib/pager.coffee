@@ -41,7 +41,7 @@ class window.hlib.Pager
 
     window.hlib.WORKING.show()
     new window.hlib.Ajax
-      url:		_pager.opts.url
+      url:		_pager.opts.url + 'page'
       data:		data
       handlers:
         h200: (response, _ajax) ->
@@ -54,7 +54,20 @@ class window.hlib.Pager
 
           _pager.opts.after_refresh response, _pager
 
-          window.hlib.MESSAGE.hide()
+          if response.page.last_access != null
+            la_data =
+              last_access: response.page.last_access
+            $.extend la_data, _pager.opts.data
+
+            new window.hlib.Ajax
+              url:  _pager.opts.url + 'last_access'
+              data: la_data
+              handlers:
+                h200: (__response, __ajax) ->
+                  window.hlib.MESSAGE.hide()
+
+          else
+            window.hlib.MESSAGE.hide()
 
   first:		() ->
     @start = 0
