@@ -30,6 +30,7 @@ except ImportError:
 import hlib
 import hlib.auth
 import hlib.compress
+import hlib.database
 import hlib.error
 import hlib.event
 import hlib.http
@@ -50,6 +51,20 @@ class AppChannels(object):
 
     self.access = []
     self.error = []
+    self.transactions = []
+
+    self.all_channels = []
+
+  def add(self, output, *channels):
+    for c in channels:
+      getattr(self, output).append(c)
+      self.all_channels.append(c)
+
+  def reopen(self):
+    map(lambda c: c.reopen(), self.all_channels)
+
+  def close(self):
+    map(lambda c: c.close(), self.all_channels)
 
 class Application(object):
   """
@@ -211,6 +226,9 @@ class Request(object):
       while len(entries) > 0:
         entry = entries.pop(0)
         if len(entry.split('.')) < 4:
+          if len(entries) <= 0:
+            print >> sys.stderr, 'Failed to pop from entries: "%s"' % self.headers['X-Forwarded-For']
+            break
           entry = entry + entries.pop(0)
         filtered_entries.append(entry)
 
@@ -510,10 +528,7 @@ class Engine(object):
     for app in self.apps.values():
       print 'Reopening channels for app %s' % app.name
 
-      for c in app.channels.access:
-        c.reopen()
-      for c in app.channels.error:
-        c.reopen()
+      app.channels.reopen()
 
   def on_sigusr1(self, signum, frame):
     if signum != signal.SIGUSR1:
@@ -526,11 +541,7 @@ class Engine(object):
 
       for engine in ENGINES:
         for app in engine.apps.values():
-          for c in app.channels.access:
-            c.close()
-
-          for c in app.channels.error:
-            c.close()
+          app.channels.close()
 
           if not app.db:
             continue
@@ -555,6 +566,7 @@ class Engine(object):
     hruntime.reset_locals()
 
     hruntime.tid		= threading.current_thread().name
+    hruntime.app    = e.server.app
     hruntime.db			= e.server.app.db
     hruntime.root		= e.server.app.root
 
@@ -578,6 +590,11 @@ class Engine(object):
     hruntime.dbconn.close()
 
   def on_request_connected(self, _):
+    hruntime.clean()
+    hruntime.db.start_transaction()
+
+    hruntime.dont_commit = True
+
     from hlib.stats import stats, stats_lock
 
     d = {
@@ -601,6 +618,8 @@ class Engine(object):
       d['Client']                         = hlib.ips_to_str(hruntime.request.ips)
       d['Requested line']                 = hruntime.request.requested_line
 
+    hlib.database.log_transaction('requested-set', requested = hruntime.request.requested)
+
   def on_request_started(self, _):
     """
     Default hlib handler for C{engine.RequestStarted} event.
@@ -611,10 +630,10 @@ class Engine(object):
     @raise hlib.http.Redirect:	Raised when requested resource is admin-access only (using L{hlib.handlers.require_admin}). Also can be raised by internal call to L{hlib.auth.check_session}.
     """
 
-    hruntime.db.start_transaction()
-    hruntime.clean()
-
     req = hruntime.request
+
+    if req.requires_write != True:
+      hruntime.db.doom()
 
     if req.requires_hosts:
       hosts_allowed = req.requires_hosts()
@@ -640,28 +659,31 @@ class Engine(object):
         passed = __check_host(hosts_present[1])
 
       if passed != True:
+        hruntime.db.doom()
         raise hlib.http.Prohibited()
 
     if req.requires_login:
       io_regime = hlib.handlers.tag_fn_check(req.handler, 'ioregime', None)
       if not io_regime:
+        hruntime.db.doom()
         raise hlib.http.Prohibited()
 
       io_regime.check_session()
+      hlib.database.log_transaction('user-assigned')
 
     if req.is_prohibited:
-      hruntime.dont_commit = True
-
+      hruntime.db.doom()
       raise hlib.http.Prohibited()
 
     if hruntime.dbroot.server.maintenance_mode == True and req.requires_login and hruntime.user.maintenance_access != True:
-      hruntime.dont_commit = True
+      hruntime.db.doom()
       raise hlib.http.Redirect('/maintenance/')
 
-    if req.requires_admin:
-      if not hruntime.user.is_admin:
-        hruntime.dont_commit = True
-        raise hlib.http.Redirect('/admin/')
+    if req.requires_admin and not hruntime.user.is_admin:
+      hruntime.db.doom()
+      raise hlib.http.Redirect('/admin/')
+
+    hruntime.dont_commit = False
 
   def on_request_finished(self, _):
     """
