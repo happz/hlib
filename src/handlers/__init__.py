@@ -45,11 +45,11 @@ class PageIORegime(object):
       return hruntime.request.handler(**hruntime.request.params)
 
     except hlib.http.Redirect, e:
-      hruntime.dont_commit = True
+      hruntime.db.doom()
       raise e
 
     except Exception, e:
-      hruntime.dont_commit = True
+      hruntime.db.doom()
 
       e = hlib.error.error_from_exception(e)
       hlib.log.log_error(e)
