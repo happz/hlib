@@ -1,3 +1,4 @@
+import functools
 import random
 import time
 import types
@@ -17,7 +18,14 @@ import hlib
 import hlib.error
 import hlib.log
 
+import hruntime
+
 from hlib.stats import stats, stats_lock
+
+def log_transaction(state, *args, **kwargs):
+  hlib.log.log_transaction(transaction.get(), state, *args, tid = hruntime.tid, **kwargs)
+
+_LT = log_transaction
 
 class CommitFailedError(hlib.error.BaseError):
   pass
@@ -125,16 +133,26 @@ class DB(object):
     return (connection, self.root)
 
   def start_transaction(self):
+    _LT("pre-create")
+
+    transaction.abort()
     transaction.begin()
+
+    _LT('post-create')
 
   def commit(self):
     try:
       with stats_lock:
         stats[self.stats_name]['Commits'] += 1
 
+      _LT('pre-commit')
       transaction.commit()
+      self.doom()
+      _LT('post-commit')
 
     except ZODB.POSException.ConflictError, e:
+      _LT('post-commit-fail')
+
       with stats_lock:
         stats[self.stats_name]['Failed commits'] += 1
 
@@ -151,11 +169,21 @@ class DB(object):
 
     return True
 
+  def doom(self):
+    hruntime.dont_commit = True
+
+    _LT('pre-doom')
+    transaction.doom()
+    _LT('post-doom')
+
   def rollback(self):
     with stats_lock:
       stats[self.stats_name]['Rollbacks'] += 1
 
+    _LT('pre-abort')
     transaction.abort()
+    self.doom()
+    _LT('post-abort')
 
   def pack(self):
     self.db.pack()
@@ -217,12 +245,17 @@ class DBObject(persistent.Persistent):
     return False
 
   def _p_resolveConflict(self, oldState, savedState, newState):
+    _LT('pre-conflict-resolve')
+
     # just log and fail
     resolved = True
     resultState = savedState.copy()
 
     try:
+      import hruntime
       print >> sys.stderr, 'DB Conflict detected:'
+      if hruntime.user:
+        print >> sys.stderr, '  User: %s' % hruntime.user.name.encode('ascii', 'replace')
 
       diff = self.__resolve_conflict_diff(oldState, savedState, newState)
       print >> sys.stderr, '  Conflicting keys: %s' % ', '.join(diff)
@@ -237,7 +270,11 @@ class DBObject(persistent.Persistent):
       print >> sys.stderr, e
 
     finally:
-      return None if resolved == False else resultState
+      _LT('post-conflict-resolve')
+      if not resolved:
+        raise ZODB.POSException.ConflictError
+
+      return resultState
 
 class IndexedMapping(DBObject):
   def __init__(self, first_key = None, *args, **kwargs):
