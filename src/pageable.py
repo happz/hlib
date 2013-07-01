@@ -35,11 +35,12 @@ class Page(hlib.api.ApiJSON):
   """
 
   def __init__(self):
-    super(Page, self).__init__(['cnt_total', 'cnt_display', 'records'])
+    super(Page, self).__init__(['cnt_total', 'cnt_display', 'records', 'last_access'])
 
     self.cnt_total              = 0
     self.cnt_display            = 0
     self.records                = []
+    self.last_access            = None
 
 class Pageable(object):
   def __init__(self, default_length = None):
@@ -63,12 +64,12 @@ class Pageable(object):
     @type start:  C{int}
     @param length: Number of items of requested page. If not set, C{default_length} as set when creating C{Pageable} is used.
     @type length: C{int}
-    @return: Tuple (C{list of records}, C{number of all items available})
+    @return: Tuple (C{list of records}, C{number of all items available}, C{None})
     @rtype: C{(list, int)}
     """
 
     # pylint: disable-msg=W0613
-    return ([], 0)
+    return ([], 0, None)
     
   def get_page(self, start = None, length = None):
     """
@@ -87,12 +88,13 @@ class Pageable(object):
 
     reply = Page()
 
-    records, cnt_total = self.get_records(start, length)
+    records, cnt_total, last_access = self.get_records(start, length)
 
     for record in records:
       reply.records.append(record.to_api())
 
     reply.cnt_total = cnt_total
     reply.cnt_display = len(records)
+    reply.last_access = last_access
 
     return reply
