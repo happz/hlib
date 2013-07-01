@@ -6,6 +6,9 @@ class Channel(hlib.log.channels.StreamChannel):
 
     self.path		= path
 
+  def flush(self):
+    self.stream.flush()
+
   def close(self):
     self.stream.close()
 

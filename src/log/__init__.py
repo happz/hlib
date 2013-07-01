@@ -4,6 +4,7 @@ import sys
 import syslog
 import time
 import traceback
+import threading
 
 import hlib
 
@@ -26,9 +27,12 @@ def make_record(message, params = None, level = None):
 
   return logging.makeLogRecord(params)
 
-def log_msg(msg, channels):
+def log_msg(msg, channels, flush = False):
   for c in channels:
     c.log_message(msg)
+
+    if flush:
+      c.flush()
 
 def log_params():
   return {
@@ -63,3 +67,24 @@ def log_error(e):
 
 def log_dbg(msg):
   log_msg('%s - %s' % (hruntime.tid, msg), [hlib.config['log.channels.error']])
+
+_transaction_log_lock = threading.RLock()
+def log_transaction(transaction, state, *args, **kwargs):
+  if hruntime.user:
+    kwargs['user'] = hruntime.user.name.encode('ascii', 'replace')
+
+  kwargs['stamp'] = time.time()
+  kwargs['state'] = transaction.status
+
+  tb = traceback.extract_stack()
+  if len(tb) >= 7:
+    kwargs['tb'] = '[%s]' % ', '.join(['%s:%s' % ('/'.join([tb[i][0].split('/')[-2], tb[i][0].split('/')[-1]]), tb[i][1]) for i in range(-4, -7, -1)])
+
+  args = ' '.join([str(arg) for arg in args])
+  kwargs = ' '.join(['%s=%s' % (k, v) for k, v in kwargs.items()])
+
+  transaction = id(transaction)
+
+  global _transaction_log_lock
+  with _transaction_log_lock:
+    log_msg('%s: %s %s %s' % (transaction, state, args, kwargs), hruntime.app.channels.transactions, flush = True)

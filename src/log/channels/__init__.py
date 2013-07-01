@@ -21,6 +21,9 @@ class Channel(object):
   def reopen(self):
     pass
 
+  def flush(self):
+    pass
+
 class StreamChannel(Channel):
   def __init__(self, stream, *args, **kwargs):
     super(StreamChannel, self).__init__(*args, **kwargs)
