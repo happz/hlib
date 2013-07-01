@@ -2,4 +2,4 @@ static/script/hlib/*.js
 
 *.map
 *.min.js
-
+*.pyc
