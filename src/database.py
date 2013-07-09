@@ -261,12 +261,15 @@ class DBObject(persistent.Persistent):
       print >> sys.stderr, '  Conflicting keys: %s' % ', '.join(diff)
 
       for key in diff:
-        if self.__resolve_conflict(key, oldState, savedState, newState, resultState) != True:
-	  print >> sys.stderr, '  Key %s unresolved' % key
-	  resolved = False
+        if self.__resolve_conflict(key, oldState, savedState, newState, resultState) == True:
+          continue
+
+        print >> sys.stderr, '  Key %s unresolved' % key
+        resolved = False
+        break
 
     except Exception, e:
-      print >> sys.stderr, 'DB Conflict prints failed'
+      print >> sys.stderr, 'DB Conflict resolution failed'
       print >> sys.stderr, e
 
     finally:
