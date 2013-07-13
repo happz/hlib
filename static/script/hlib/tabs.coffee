@@ -16,7 +16,7 @@ class window.hlib.Tabs
     tid = '#' + name
 
     $(tid).trigger 'hlib_render'
-    $(@eid).tabs 'select', index
+    $(@eid).tabs 'option', 'active', index
     @current_tab = name
 
     if handle.attr 'location-hash'
