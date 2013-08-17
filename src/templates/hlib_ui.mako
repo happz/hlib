@@ -1,6 +1,7 @@
 <%!
 
 import re
+import hlib
 import hlib.i18n
 
 import hruntime
@@ -278,6 +279,14 @@ class Button(Input):
     self.classes.append('btn')
 
 %>
+
+<%def name="script(path)">
+  <script type="text/javascript" src="${path}${hlib.version_stamp(path)}"></script>
+</%def>
+
+<%def name="style(path)">
+  <link rel="stylesheet" href="${path}${hlib.version_stamp(path)}" type="text/css" />
+</%def>
 
 <%def name="ui_page_header(header)">
   <div class="row-fluid page-header"><h2>${_(header)}</h2></div>

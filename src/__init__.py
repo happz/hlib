@@ -12,6 +12,7 @@ __version__		= '3.0-rc1'
 
 import ConfigParser
 import htmlentitydefs
+import os
 import os.path
 import random
 import re
@@ -194,3 +195,19 @@ def unescape(text):
         pass
     return text
   return re.sub(r"&#?\w+;", fixup, text)
+
+def version_stamp(path):
+  while path[0] == '/':
+    path = path[1:]
+
+  path = os.path.join(hruntime.app.config['dir'], path)
+
+  try:
+    stat = os.stat(path)
+
+  except OSError:
+    print >> sys.stderr, 'Missing file: "%s"' % path
+    return ''
+
+  else:
+    return '?_version_stamp=' + str(int(stat.st_mtime))
