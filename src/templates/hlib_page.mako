@@ -43,16 +43,6 @@
 
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 
-  <script type="text/javascript">
-    $(document).ready(function() {
-      $(window).trigger('hlib_prestartup');
-      $(window).trigger('page_prestartup');
-      $(window).trigger('hlib_startup');
-      $(window).trigger('page_startup');
-      $(window).trigger('hlib_poststartup');
-      $(window).trigger('page_poststartup');
-    });
-  </script>
 </%def>
 
 <%def name="page_pre_body()">
@@ -80,5 +70,16 @@
     ${next.body()}
 
     ${self.page_post_body()}
+
+    <script type="text/javascript">
+      $(document).ready(function() {
+        $(window).trigger('hlib_prestartup');
+        $(window).trigger('page_prestartup');
+        $(window).trigger('hlib_startup');
+        $(window).trigger('page_startup');
+        $(window).trigger('hlib_poststartup');
+        $(window).trigger('page_poststartup');
+      });
+    </script>
   </body>
 </html>
