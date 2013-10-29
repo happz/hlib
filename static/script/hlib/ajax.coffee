@@ -46,15 +46,16 @@ class window.hlib.Ajax
       timeout:      _ajax.opts.timeout
       async:        true
 
-      statusCode:
-        500: () ->
-          window.hlib.error 'Server error', {message: 'Oh no! Server suddenly went away. Be sure we are all freaking out - take a break, get a coffee, and try again in 5 minutes or so.'}
-
       beforeSend:	() ->
         if _ajax.opts.show_spinner == true
           window.hlib.WORKING.show()
 
       complete:			(jqXHR, textStatus) ->
+        if jqXHR.status == 500
+          window.hlib.WORKING.hide()
+          window.hlib.server_offline()
+          return
+
         response = $.parseJSON jqXHR.responseText
 
         if textStatus != 'success'
@@ -78,6 +79,11 @@ class window.hlib.Ajax
           $('#' + focus_elements[0].id).focus()
 
       error:			(jqXHR, textStatus, errorThrown) ->
+        if jqXHR.status == 500
+          window.hlib.WORKING.hide()
+          window.hlib.server_offline()
+          return
+
         response = $.parseJSON jqXHR.responseText
         _ajax.opts.handlers.error _ajax, response, jqXHR, textStatus
 

@@ -49,6 +49,14 @@ window.hlib._g = (s) ->
 
   return s
 
+window.hlib.server_offline = () ->
+  if Offline
+    Offline.markDown()
+
+window.hlib.server_online = () ->
+  if Offline
+    Offline.markUp()
+
 window.hlib.ajax.call = (type, url, data, callback) ->
   xhr = new XMLHttpRequest()
   fd = null
