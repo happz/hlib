@@ -22,14 +22,16 @@
 <%def name="page_title()">
 </%def>
 
-<%def name="page_favicon(path_prefix = '/static/images/favicon/', tile_background = None)">
-  <link rel="apple-touch-icon" href="${path_prefix}/favicon-96px.png">
-  <link rel="icon" href="${path_prefix}/favicon-96px.png">
-  <!--[if IE]><link rel="shortcut icon" href="${path_prefix}/favicon-32px.ico"><![endif]-->
-  % if tile_background:
-    <meta name="msapplication-TileColor" content="#36932A">
-  % endif
-  <meta name="msapplication-TileImage" content="${path_prefix}/tileicon-96px.png">
+<%def name="page_favicon(path_prefix = '/static/images/favicon/', tile_background = '#2b5797')">
+  <link rel="apple-touch-icon" sizes="57x57" href="${path_prefix}/apple-touch-icon-57x57.png" />
+  <link rel="apple-touch-icon" sizes="72x72" href="${path_prefix}/apple-touch-icon-72x72.png" />
+  <link rel="apple-touch-icon" sizes="60x60" href="${path_prefix}/apple-touch-icon-60x60.png" />
+  <link rel="apple-touch-icon" sizes="76x76" href="${path_prefix}/apple-touch-icon-76x76.png" />
+  <link rel="icon" type="image/png" href="${path_prefix}/favicon-16x16.png" sizes="16x16" />
+  <link rel="icon" type="image/png" href="${path_prefix}/favicon-32x32.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="${path_prefix}/favicon-96x96.png" sizes="96x96" />
+  <meta name="msapplication-TileColor" content="${tile_background}" />
+  <meta name="msapplication-square70x70logo" content="${path_prefix}/mstile-70x70.png" />
 </%def>
 
 <%def name="page_style()">
