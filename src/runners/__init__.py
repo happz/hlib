@@ -1,21 +1,65 @@
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
+
+import ConfigParser
 import ipaddr
 import os.path
+import signal
+import sys
 
-import hlib
+import hlib.database
 import hlib.engine
-import hlib.event
+import hlib.events
+import hlib.http.session
 import hlib.log.channels.file
 import hlib.log.channels.stderr
+import hlib.server
 
-import hruntime
+import hruntime  # @UnresolvedImport
 
 hruntime.tid = None
 
+class ConfigFile(ConfigParser.ConfigParser):
+  def __init__(self, default = None):
+    ConfigParser.ConfigParser.__init__(self)
+
+    self.default = default or {}
+
+  def get(self, section, option):
+    if self.has_option(section, option):
+      return ConfigParser.ConfigParser.get(self, section, option)
+
+    if section not in self.default:
+      raise ConfigParser.NoSectionError(section)
+
+    if option not in self.default[section]:
+      raise ConfigParser.NoOptionError(section, option)
+
+    return self.default[section][option]
+
 class Runner(object):
+  def on_sighup(self, signum, frame):
+    if signum != signal.SIGHUP:
+      return
+
+    hlib.events.trigger('system.LogReload', None)
+
+  def on_sigusr1(self, signum, frame):
+    if signum != signal.SIGUSR1:
+      return
+
+    hlib.events.trigger('system.SystemReload', None)
+
+    print 'Restarting application'
+
+    os.execv(sys.argv[0], sys.argv[:])
+
   def __init__(self, config_file, root, config_defaults = None, on_app_config = None):
     super(Runner, self).__init__()
 
-    config = hlib.ConfigFile(default = config_defaults)
+    config = ConfigFile(default = config_defaults)
     config.read(config_file)
 
     # Setup channels - error, access and transactions
@@ -24,7 +68,6 @@ class Runner(object):
     def __get_channel(name):
       if config.get('log', name):
         p = config.get('log', name)
-        c = hlib.log.channels.file.Channel(config.get('log', name))
       else:
         p = os.path.join(config.get('server', 'path'), 'logs', name + '.log')
 
@@ -34,11 +77,9 @@ class Runner(object):
     error = __get_channel('error')
     transactions = __get_channel('transactions')
 
-    hlib.config['log.channels.error'] = stderr
-
     # Setup database
     db_address = hlib.database.DBAddress(config.get('database', 'address'))
-    db = hlib.database.DB('main db', db_address, cache_size = 35000, pool_size = int(config.get('server', 'pool.max')) + 2)
+    db = hlib.database.DB('main db', db_address, cache_size = int(config.get('database', 'cache_size')), pool_size = int(config.get('server', 'queue.workers')) + 1)
     db.open()
 
     # Create application
@@ -83,11 +124,14 @@ class Runner(object):
     server_config['server'] = config.get('server', 'host')
     server_config['port']   = int(config.get('server', 'port'))
     server_config['app']    = app
-    server_config['pool.max'] = int(config.get('server', 'pool.max'))
+    server_config['queue.workers'] = int(config.get('server', 'queue.workers'))
+    server_config['queue.timeout'] = int(config.get('server', 'queue.timeout'))
+    server_config['queue.size'] = int(config.get('server', 'queue.size'))
 
-    self.engine = hlib.engine.Engine([server_config])
+    self.engine = hlib.engine.Engine('Engine #1', [server_config])
+
+    signal.signal(signal.SIGHUP, self.on_sighup)
+    signal.signal(signal.SIGUSR1, self.on_sigusr1)
 
   def run(self):
-    print 'Starting...'
-    print 'PID = %i' % os.getpid()
     self.engine.start()

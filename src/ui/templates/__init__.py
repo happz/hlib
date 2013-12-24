@@ -1,19 +1,15 @@
-"""
-Classes for templates
-
-@version:                       1.0
-
-@author:                        Milos Prchlik
-@contact:                       U{happz@happz.cz}
-@license:                       DPL (U{http://www.php-suit.com/dpl})
-"""
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
 
 import BeautifulSoup
-import hlib
 import mako.exceptions
 import mako.lookup
 import mako.template
 import os.path
+
+import hlib.error
 
 class Template(object):
   """
@@ -58,7 +54,7 @@ class Template(object):
     """
 
     # pylint: disable-msg=R0201
-    raise hlib.error.UnimplementedError(obj = Template)
+    raise error.UnimplementedError(obj = Template)
 
   def render(self, params = None):
     """

@@ -30,7 +30,7 @@ class Command(object):
 
     self.console = console
     self.parser = parser
-    
+
   def handler(self, *args, **kwargs):
     return {}
 

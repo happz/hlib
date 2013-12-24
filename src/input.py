@@ -9,12 +9,11 @@ from formencode.validators import NotEmpty, UnicodeString, MinLength, MaxLength,
 from formencode.compound import Pipe, Any, All
 from formencode.schema import Schema
 
-import hlib
 import hlib.error
 import hlib.handlers
 
 # pylint: disable-msg=F0401
-import hruntime
+import hruntime  # @UnresolvedImport
 
 class SchemaValidator(Schema):
   allow_extra_fields = False

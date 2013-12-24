@@ -1,3 +1,8 @@
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
+
 import getopt
 import sys
 
@@ -17,7 +22,7 @@ where options can be:
   sys.exit(0)
 
 def main(root, config_defaults, on_app_config):
-  optlist, args = getopt.getopt(sys.argv[1:], 'c:h')
+  optlist, _ = getopt.getopt(sys.argv[1:], 'c:h')
 
   for o in optlist:
     if o[0] == '-h':

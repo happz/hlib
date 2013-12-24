@@ -8,14 +8,12 @@ Mako templates
 @license:                       DPL (U{http://www.php-suit.com/dpl})
 """
 
-import hlib
-import hlib.ui.templates
 import mako.exceptions
 import mako.lookup
 import mako.template
-import os.path
-
 import threading
+
+import hlib.ui.templates
 
 render_lock = threading.RLock()
 

@@ -1,20 +1,12 @@
-"""
-Application engine. Classes for defining applications, default engine' event handlers, request/response classes.
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
 
-@todo:				Add sanity checks for all HTTP input.
-"""
-
-__author__              = 'Milos Prchlik'
-__copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
-__contact__             = 'happz@happz.cz'
-__license__             = 'http://www.php-suit.com/dpl'
-
-import hashlib
+import functools
 import http_parser.util
 import ipaddr
 import os.path
-import pprint
-import signal
 import StringIO
 import sys
 import threading
@@ -27,20 +19,21 @@ try:
 except ImportError:
   import http_parser.pyparser as HTTPParser
 
-import hlib
-import hlib.auth
+import hlib.cache
 import hlib.compress
+import hlib.console
 import hlib.database
-import hlib.error
-import hlib.event
-import hlib.http
+import hlib.events
+import hlib.handlers
 import hlib.http.cookies
-import hlib.i18n
 import hlib.log
+import hlib.scheduler
 import hlib.server
 
+from hlib.stats import stats as STATS
+
 # pylint: disable-msg=F0401
-import hruntime
+import hruntime  # @UnresolvedImport
 
 ENGINES = []
 ENGINES_LOCK = threading.RLock()
@@ -75,56 +68,54 @@ class Application(object):
     """
     @type name:			C{string}
     @param name:		Name of application. Any string at all.
-    @type root:			L{hlib.handlers.GenericHandler}
+    @type root:			L{handlers.GenericHandler}
     @param root:		Root of tree of handlers.
-    @type db:			L{hlib.database.DB}
+    @type db:			L{database.DB}
     @param db:			Database access.
     """
 
     super(Application, self).__init__()
 
-    self.engines		= []
+    self.engines = []
 
-    self.name                   = name
-    self.root                   = root
-    self.db			= db
-    self.config			= config
+    self.name = name
+    self.root = root
+    self.db = db
+    self.config = config
 
     import hlib.cache
-    self.cache			= hlib.cache.Cache('Global', self)
+    self.cache = hlib.cache.Cache('Global', self)
+    self.channels	= AppChannels()
 
-    self.channels		= AppChannels()
-
-    self.sessions		= None
+    self.sessions	= None
 
     import hlib.api
-    self.api_tokens		= hlib.api.ApiTokenCache(self.name, self)
+    self.api_tokens = hlib.api.ApiTokenCache(self.name, self)
 
   def __repr__(self):
-    return '<hlib.engine.Application(\'%s\', %s, %s, <config>)>' % (self.name, self.root, self.db)
+    return '<engine.Application(\'%s\', %s, %s, <config>)>' % (self.name, self.root, self.db)
 
   @staticmethod
   def default_config(app_path):
-    c = {}
+    return {
+      'dir': app_path,
+      'title': None,
+      'label': None,
 
-    c['dir']			= app_path
-    c['title']			= None
-    c['label']			= None
-    c['cache.enabled']		= None
+      'cache.enabled': False,
 
-    c['templates.dirs']		= [os.path.join(app_path, 'src', 'templates'), os.path.join(hlib.PATH, 'templates')]
-    c['templates.tmp_dir']	= os.path.join(app_path, 'compiled')
+      'templates.dirs': [os.path.join(app_path, 'src', 'templates'), os.path.join(os.path.dirname(hlib.__file__), 'templates')],
+      'templates.tmp_dir': os.path.join(app_path, 'compiled'),
 
-    c['pages']			= os.path.join(app_path, 'pages')
+      'pages': os.path.join(app_path, 'pages'),
 
-    c['mail.server']		= 'localhost'
+      'mail.server': 'localhost',
 
-    c['log.access.format']	= '{date} {time} {request_line} {response_status} {response_length} {request_ip} {request_user}'
+      'log.access.format': '{date} {time} {request_line} {response_status} {response_length} {request_ip} {request_user}',
 
-    c['sessions.time']		= 2 * 86400
-    c['sessions.cookie_name']	= 'hlib_sid'
-
-    return c
+      'sessions.time': 2 * 86400,
+      'sessions.cookie_name': 'hlib_sid'
+    }
 
   def get_handler(self, requested):
     h = self.root
@@ -151,7 +142,7 @@ class HeaderMap(UserDict.UserDict):
   """
   Dictionary-like object storing HTTP headers and their values.
 
-  All header names are converted to first-letter-capitalized format on all operations (get/set/delete). Used by L{hlib.engine.Request} and L{hlib.engine.Response}.
+  All header names are converted to first-letter-capitalized format on all operations (get/set/delete). Used by L{engine.Request} and L{engine.Response}.
 
   @todo:			Support more than 1 header simultaneously (for Cookie header, etc.)
   """
@@ -176,49 +167,50 @@ class MultipartPiece(object):
     self.data = None
 
 class Request(object):
-  def __init__(self, server_handler):
+  def __init__(self, socket, client_address, server):
     super(Request, self).__init__()
 
-    self.server_handler	= server_handler
-    self.server		= self.server_handler.server
+    self.socket = socket
+    self.client_address = client_address
+    self.server	= server
 
-    self.input          = []
+    self.input = []
     self.parts = []
-    self.parser         = HTTPParser.HttpParser()
+    self.parser = HTTPParser.HttpParser()
 
-    self.base		= None
-    self.cookies        = {}
-    self.handler        = None
-    self.headers        = HeaderMap()
-    self.http_version   = None
-    self.method         = None
-    self.params         = {}
-    self.params_valid	= False
-    self.requested      = None
-    self.requested_line	= None
+    self.base	= None
+    self.cookies = {}
+    self.handler = None
+    self.headers = HeaderMap()
+    self.http_version = None
+    self.method = None
+    self.params = {}
+    self.params_valid = False
+    self.requested = None
+    self.requested_line = None
 
-    self.api_token	= None
+    self.api_token = None
 
-    self.ctime		= time.time()
-    self.read_bytes	= 0
-    self.written_bytes	= 0
+    self.ctime = time.time()
+    self.read_bytes = 0
+    self.written_bytes = 0
 
     self._ips		= None
 
-  requires_login	= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_login', False))
-  requires_admin	= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_admin', False))
-  requires_write	= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_write', False))
-  requires_hosts	= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_hosts', False))
+  requires_login = property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_login', False))
+  requires_admin = property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_admin', False))
+  requires_write = property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_write', False))
+  requires_hosts = property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'require_hosts', False))
 
-  is_prohibited		= property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'prohibited', False))
-  is_tainted		= property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'tainted') and hruntime.session.tainted != False)
+  is_prohibited = property(lambda self: hlib.handlers.tag_fn_check(self.handler, 'prohibited', False))
+  is_tainted = property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'tainted') and hruntime.session.tainted != False)
   is_authenticated = property(lambda self: hruntime.session != None and hasattr(hruntime.session, 'authenticated') and hruntime.session.authenticated == True)
 
   @property
   def ips(self):
     try:
       if 'X-Forwarded-For' not in self.headers:
-        return [ipaddr.IPAddress(self.server_handler.client_address[0])]
+        return [ipaddr.IPAddress(self.client_address[0])]
 
       entries = [e.strip() for e in self.headers['X-Forwarded-For'].split(',')]
       filtered_entries = []
@@ -237,18 +229,18 @@ class Request(object):
       if len(entries) != len(filtered_entries):
         print >> sys.stderr, 'Bad X-Forwarded-For: "%s" vs "%s"' % (str(entries), str(filtered_entries))
 
-      return [ipaddr.IPAddress(self.server_handler.client_address[0])] + ([ipaddr.IPAddress(ip.strip()) for ip in filtered_entries])
+      return [ipaddr.IPAddress(self.client_address[0])] + ([ipaddr.IPAddress(ip.strip()) for ip in filtered_entries])
 
     except ValueError, e:
       print >> sys.stderr, '----- ----- Invalid IP address ----- -----'
       print >> sys.stderr, e
-      print >> sys.stderr, 'Client address:', self.server_handler.client_address
+      print >> sys.stderr, 'Client address:', self.client_address
       print >> sys.stderr, 'X-Forwarded-For:', self.headers['X-Forwarded-For']
       return []
 
-  def read_data(self, socket):
+  def read_data(self):
     while True:
-      data = socket.recv(1024)
+      data = self.socket.recv(1024)
 
       if not data:
         break
@@ -281,8 +273,6 @@ class Request(object):
 
     for key, value in self.parser.get_headers().items():
       self.headers[key] = value
-
-    post_data = self.input.strip()
 
     if 'Host' in self.headers:
       self.base = self.headers['Host']
@@ -327,7 +317,7 @@ class Request(object):
       if ct.startswith('application/x-www-form-urlencoded'):
         if len(self.input) <= 0:
           pass
-          #raise hlib.http.BadRequest('Content-Type == x-www-form-urlencoded and empty body')
+          #raise http.BadRequest('Content-Type == x-www-form-urlencoded and empty body')
         else:
           __parse_params(self.input)
 
@@ -479,6 +469,28 @@ class Response(object):
 
     return '\r\n'.join(lines) + '\r\n'
 
+class MinimizeDBCacheTask(hlib.scheduler.Task):
+  def __init__(self, engine):
+    super(MinimizeDBCacheTask, self).__init__('minimize-db-cache', self.minimize_cache, min = [10, 30, 50])
+
+    self.engine = engine
+
+  def minimize_cache(self):
+    for app in self.engine.apps.values():
+      if app.db != None and app.db.is_opened:
+        app.db.minimize_cache()
+
+class PackDBTask(hlib.scheduler.Task):
+  def __init__(self, engine):
+    super(PackDBTask, self).__init__('pack-db', self.pack_db, hour = [2, 10, 18])
+
+    self.engine = engine
+
+  def pack_db(self):
+    for app in self.engine.apps.values():
+      if app.db != None and app.db.is_opened:
+        app.db.pack()
+
 class Engine(object):
   """
   Engine binds servers together.
@@ -486,72 +498,86 @@ class Engine(object):
   Right now there is no need to have more than 1 engine in application. Maybe some day...
   """
 
-  def __init__(self, server_configs):
+  def __init__(self, name, server_configs):
     super(Engine, self).__init__()
 
-    self.servers	= []
-    self.apps		= {}
+    self.name = name
+    self.quit_event = threading.Event()
+
+    self.servers = []
+    self.apps = {}
+    self.hooks = {}
+
+    self.scheduler = hlib.scheduler.SchedulerThread(self)
+    self.scheduler.start()
+
+    self.scheduler.add_task(MinimizeDBCacheTask(self))
+    self.scheduler.add_task(PackDBTask(self))
 
     i = 0
     for sc in server_configs:
       self.apps[sc['app'].name] = sc['app']
       sc['app'].engines.append(self)
 
-      server = hlib.server.Server(self, 'server-%i' % i, sc, (sc['host'], sc['port']), hlib.server.RequestHandler)
+      server = hlib.server.Server(self, 'server-%i' % i, sc)
       self.servers.append(server)
 
       i += 1
 
-    self.stats_name		= 'Engine'
+    self.stats_name	= self.name
 
-    # Set up event handlers
-    signal.signal(signal.SIGHUP, self.on_sighup)
-    signal.signal(signal.SIGUSR1, self.on_sigusr1)
-    hlib.event.Hook('engine.ThreadStarted',    'hlib.engine.Engine', self.on_thread_start)
-    hlib.event.Hook('engine.ThreadFinished'  , 'hlib.engine.Engine', self.on_thread_finished)
-    hlib.event.Hook('engine.RequestConnected', 'hlib.engine.Engine', self.on_request_connected)
-    hlib.event.Hook('engine.RequestAccepted',  'hlib.engine.Engine', self.on_request_accepted)
-    hlib.event.Hook('engine.RequestStarted',   'hlib.engine.Engine', self.on_request_started)
-    hlib.event.Hook('engine.RequestFinished',  'hlib.engine.Engine', self.on_request_finished)
-    hlib.event.Hook('engine.RequestClosed',    'hlib.engine.Engine', self.on_request_closed)
-    hlib.event.Hook('engine.Halted',           'hlib.engine.Engine', self.on_engine_halted)
+    with STATS:
+      STATS.set(self.stats_name, {
+        'Current time': lambda s: hruntime.time,
+        'Current requests': lambda s: len(s['Requests']),
+
+        'Start time': time.time(),
+        'Uptime': lambda s: time.time() - s['Start time'],
+
+        'Total bytes read': 0,
+        'Total bytes written': 0,
+        'Total requests': 0,
+        'Total time': 0,
+
+        'Bytes read/second': lambda s: s['Total bytes read'] / s['Uptime'](s),
+        'Bytes written/second': lambda s: s['Total bytes written'] / s['Uptime'](s),
+        'Bytes read/request': lambda s: (s['Total requests'] and (s['Total bytes read'] / float(s['Total requests'])) or 0.0),
+        'Bytes written/request': lambda s: (s['Total requests'] and (s['Total bytes written'] / float(s['Total requests'])) or 0.0),
+        'Requests/second': lambda s: float(s['Total requests']) / s['Uptime'](s),
+
+        'Requests': {},
+
+        'Missing handlers': 0,
+        'RO requests': 0,
+        'Forced RO requests': 0,
+        'Failed commits': 0,
+      })
+
+    self.console = hlib.console.Console('main console', self, sys.stdin, sys.stdout)
+    self.console.register_command('db', hlib.database.Command_Database)
+    self.console.register_command('server', hlib.server.Command_Server)
 
     with ENGINES_LOCK:
       ENGINES.append(self)
 
-  def on_sighup(self, signum, frame):
-    if signum != signal.SIGHUP:
-      return
-
-    hlib.config['log.channels.error'].reopen()
-
+  def on_log_reload(self, _):
     for app in self.apps.values():
       print 'Reopening channels for app %s' % app.name
 
       app.channels.reopen()
 
-  def on_sigusr1(self, signum, frame):
-    if signum != signal.SIGUSR1:
-      return
+  def on_system_reload(self, _):
+    for server in self.servers:
+      server.stop()
 
-    with ENGINES_LOCK:
-      for engine in ENGINES:
-        for server in engine.servers:
-          server.stop()
+    for app in self.apps.values():
+      app.channels.close()
 
-      for engine in ENGINES:
-        for app in engine.apps.values():
-          app.channels.close()
+      if not app.db:
+        continue
 
-          if not app.db:
-            continue
-
-          app.db.close()
-          app.db = None
-
-    print 'Restarting application'
-
-    os.execv(sys.argv[0], sys.argv[:])
+      app.db.close()
+      app.db = None
 
   def on_thread_start(self, e):
     """
@@ -559,16 +585,22 @@ class Engine(object):
 
     Set up thread enviroment (L{hruntime} variables) and open database connection.
 
-    @type e:			L{hlib.events.engine.ThreadStarted}
+    @type e:			L{events.engine.ThreadStarted}
     @param e:			Current event.
     """
 
     hruntime.reset_locals()
 
-    hruntime.tid		= threading.current_thread().name
-    hruntime.app    = e.server.app
-    hruntime.db			= e.server.app.db
-    hruntime.root		= e.server.app.root
+    hruntime.app = e.server.app
+    hruntime.db = e.server.app.db
+    hruntime.root = e.server.app.root
+
+    thread_stats_setter = functools.partial(STATS.set, hruntime.service_server.pool.stats_name, 'Threads', hruntime.tid)
+    with STATS:
+      thread_stats_setter('Total bytes read', 0)
+      thread_stats_setter('Total bytes written', 0)
+      thread_stats_setter('Total requests', 0)
+      thread_stats_setter('Total time', 0)
 
     dbconn, dbroot = hruntime.db.connect()
     hruntime.db.start_transaction()
@@ -579,8 +611,6 @@ class Engine(object):
     if 'root' in dbroot:
       hruntime.dbroot = dbroot['root']
       hruntime.db.rollback()
-
-    hruntime.__init_done	= True
 
   def on_thread_finished(self, _):
     """
@@ -595,30 +625,22 @@ class Engine(object):
 
     hruntime.dont_commit = True
 
-    from hlib.stats import stats, stats_lock
-
-    d = {
-      'Bytes read':                     0,
-      'Bytes written':                  0,
-      'Client':                         hlib.ips_to_str(hruntime.request.ips),
-      'Start time':                     hruntime.time,
-      'Requested line':                 None
-    }
-
-    with stats_lock:
-      stats[self.stats_name]['Total requests'] += 1
-      stats[self.stats_name]['Requests'][hruntime.tid] = d
+    with STATS:
+      STATS.inc(self.stats_name, 'Total requests')
+      STATS.set(self.stats_name, 'Requests', hruntime.tid, {
+        'Bytes read':                     0,
+        'Bytes written':                  0,
+        'Client':                         hlib.server.ips_to_str(hruntime.request.ips),
+        'Start time':                     hruntime.time,
+        'Requested line':                 None
+      })
 
   def on_request_accepted(self, _):
-    from hlib.stats import stats, stats_lock
+    with STATS:
+      STATS.set(self.stats_name, 'Requests', hruntime.tid, 'Client', hlib.server.ips_to_str(hruntime.request.ips))
+      STATS.set(self.stats_name, 'Requests', hruntime.tid, hruntime.request.requested_line)
 
-    with stats_lock:
-      d = stats[self.stats_name]['Requests'][hruntime.tid]
-
-      d['Client']                         = hlib.ips_to_str(hruntime.request.ips)
-      d['Requested line']                 = hruntime.request.requested_line
-
-    hlib.database.log_transaction('requested-set', requested = hruntime.request.requested)
+    hruntime.db.log_transaction('requested-set', requested = hruntime.request.requested)
 
   def on_request_started(self, _):
     """
@@ -626,8 +648,8 @@ class Engine(object):
 
     Prepare enviroment for (and based on) new request. Reset L{hruntime} properties to default values, start new db transaction, and check basic access controls for new request.
 
-    @raise hlib.http.Prohibited:	Raised when requested resource is marked as prohibited (using L{hlib.handlers.prohibited})
-    @raise hlib.http.Redirect:	Raised when requested resource is admin-access only (using L{hlib.handlers.require_admin}). Also can be raised by internal call to L{hlib.auth.check_session}.
+    @raise http.Prohibited:	Raised when requested resource is marked as prohibited (using L{handlers.prohibited})
+    @raise http.Redirect:	Raised when requested resource is admin-access only (using L{handlers.require_admin}). Also can be raised by internal call to L{auth.check_session}.
     """
 
     req = hruntime.request
@@ -669,7 +691,7 @@ class Engine(object):
         raise hlib.http.Prohibited()
 
       io_regime.check_session()
-      hlib.database.log_transaction('user-assigned')
+      hruntime.db.log_transaction('user-assigned')
 
     if req.is_prohibited:
       hruntime.db.doom()
@@ -694,32 +716,44 @@ class Engine(object):
 
     hlib.log.log_access()
 
-    from hlib.stats import stats, stats_lock
+    req = hruntime.request
+    t = time.time() - req.ctime
 
-    def __update_stats(engine_stat):
-      # pylint: disable-msg=W0613
-      with stats_lock:
-        stats[self.stats_name][engine_stat] += 1
+    thread_stats_adder = functools.partial(STATS.add, hruntime.service_server.pool.stats_name, 'Threads', hruntime.tid)
+    engine_stats_adder = functools.partial(STATS.add, self.stats_name)
+
+    with STATS:
+      thread_stats_adder('Total bytes read', req.read_bytes)
+      thread_stats_adder('Total bytes written', req.written_bytes)
+      thread_stats_adder('Total time', t)
+
+      engine_stats_adder('Total bytes read', req.read_bytes)
+      engine_stats_adder('Total bytes written', req.written_bytes)
+      engine_stats_adder('Total time', t)
+
+    def db_stats_incer(*args):
+      with STATS:
+        STATS.inc(self.stats_name, *args)
 
     if not hruntime.request.handler:
       hruntime.db.rollback()
-      __update_stats('Missing handlers')
+      db_stats_incer('Missing handlers')
       return
 
     if hruntime.request.requires_write != True:
       hruntime.db.rollback()
-      __update_stats('RO requests')
+      db_stats_incer('RO requests')
       return
 
     if hruntime.dont_commit != False:
       hruntime.db.rollback()
-      __update_stats('Forced RO requests')
+      db_stats_incer('Forced RO requests')
       return
 
     if hruntime.db.commit() == True:
       return
 
-    __update_stats('Failed commits')
+    db_stats_incer('Failed commits')
     hruntime.db.rollback()
 
   def on_request_closed(self, _):
@@ -729,10 +763,8 @@ class Engine(object):
     Clean up after finished request, and update statistics.
     """
 
-    from hlib.stats import stats, stats_lock
-
-    with stats_lock:
-      del stats[self.stats_name]['Requests'][hruntime.tid]
+    with STATS:
+      STATS.remove(self.stats_name, 'Requests', hruntime.tid)
 
   def on_engine_halted(self, _):
     """
@@ -740,68 +772,53 @@ class Engine(object):
 
     For now, just dump statistics and language coverage data.
     """
-
-    # pylint: disable-msg=W0621
-    import hlib.stats
-    stats_copy = hlib.stats.snapshot(hlib.stats.stats)
-
-    pprint.pprint(stats_copy)
-
-    for app in self.apps.values():
-      if app.cache:
-        print
-        print app.cache.stats_name
-
-        for user, chain in app.cache.objects.items():
-          print '  %s' % user.name.encode('ascii', 'replace')
-          for key, value in chain.items():
-            print '    "%s" = %s, size %i' % (key, type(value), len(value))
-
-  def init_stats(self):
-    import hlib.stats
-    hlib.stats.init_namespace('Engine', {
-      'Current time':             lambda s: hruntime.time,
-      'Current requests':         lambda s: len(s['Requests']),
-
-      'Start time':               time.time(),
-      'Uptime':                   lambda s: time.time() - s['Start time'],
-
-      'Total bytes read':         0,
-      'Total bytes written':      0,
-      'Total requests':           0,
-      'Total time':                       0,
-
-      'Bytes read/second':        lambda s: s['Total bytes read'] / s['Uptime'](s),
-      'Bytes written/second':     lambda s: s['Total bytes written'] / s['Uptime'](s),
-      'Bytes read/request':       lambda s: (s['Total requests'] and (s['Total bytes read'] / float(s['Total requests'])) or 0.0),
-      'Bytes written/request':    lambda s: (s['Total requests'] and (s['Total bytes written'] / float(s['Total requests'])) or 0.0),
-      'Requests/second':          lambda s: float(s['Total requests']) / s['Uptime'](s),
-
-      'Requests':                 {},
-
-      'Missing handlers':	0,
-      'RO requests':		0,
-      'Forced RO requests':	0,
-      'Failed commits':		0,
-    })
+    pass
 
   def start(self):
-    self.init_stats()
-
-    hlib.event.trigger('engine.Started', None, post = False)
-
     for s in self.servers:
       s.start()
 
+    self.servers[0].start_console(self.console)
+
+    self.hooks = {
+      'system.LogReload': hlib.events.Hook('system.LogReload', self.on_log_reload),
+      'system.SystemReload': hlib.events.Hook('system.SystemReload', self.on_system_reload),
+      'engine.ThreadStarted': hlib.events.Hook('engine.ThreadStarted', self.on_thread_start),
+      'engine.ThreadFinished': hlib.events.Hook('engine.ThreadFinished', self.on_thread_finished),
+      'engine.RequestConnected': hlib.events.Hook('engine.RequestConnected', self.on_request_connected),
+      'engine.RequestAccepted': hlib.events.Hook('engine.RequestAccepted', self.on_request_accepted),
+      'engine.RequestStarted': hlib.events.Hook('engine.RequestStarted', self.on_request_started),
+      'engine.RequestFinished': hlib.events.Hook('engine.RequestFinished', self.on_request_finished),
+      'engine.RequestClosed': hlib.events.Hook('engine.RequestClosed', self.on_request_closed),
+      'engine.Halted': hlib.events.Hook('engine.Halted', self.on_engine_halted)
+    }
+
+    self.quit_event.clear()
+
+    hlib.events.trigger('engine.Started', None, post = False)
+
     try:
       while True:
-        time.sleep(100)
-        time.sleep(0)     # yield
+        self.quit_event.wait(100)
+
+        if self.quit_event.is_set():
+          break
+
+        time.sleep(0) # yield
 
     except KeyboardInterrupt:
-      for server in self.servers:
-        server.stop()
+      self.stop()
 
-      hlib.event.trigger('engine.Halted', None)
+  def stop(self):
+    for server in self.servers:
+      server.stop()
 
-      sys.exit(0)
+    hlib.events.trigger('engine.Halted', None, post = False)
+
+    for hook in self.hooks.values():
+      hook.unregister()
+
+    self.quit_event.set()
+
+import hlib.events.engine  # @UnusedImport
+import hlib.events.system  # @UnusedImport

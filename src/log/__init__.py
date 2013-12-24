@@ -1,3 +1,8 @@
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
+
 import functools
 import logging
 import sys
@@ -6,12 +11,8 @@ import time
 import traceback
 import threading
 
-import hlib
-
 # pylint: disable-msg=F0401
-import hruntime
-
-hlib.config['log.channels.error'] = None
+import hruntime  # @UnresolvedImport
 
 def make_record(message, params = None, level = None):
   params = {
@@ -35,13 +36,15 @@ def log_msg(msg, channels, flush = False):
       c.flush()
 
 def log_params():
+  import hlib.server
+
   return {
     'tid':			hruntime.tid,
     'stamp':			hruntime.localtime,
     'date':			time.strftime('%d/%m/%Y', hruntime.localtime),
     'time':			time.strftime('%H:%M:%S', hruntime.localtime),
     'request_line':		hruntime.request.requested_line,
-    'request_ip':		hlib.ips_to_str(hruntime.request.ips),
+    'request_ip':		hlib.server.ips_to_str(hruntime.request.ips),
     'request_user':		hruntime.session.name if hruntime.session != None and hasattr(hruntime.session, 'authenticated') and hasattr(hruntime.session, 'name') else '-',
     'request_agent':		hruntime.request.headers.get('User-Agent', '-'),
     'response_status':		hruntime.response.status,
@@ -66,7 +69,7 @@ def log_error(e):
     c.log_error(e)
 
 def log_dbg(msg):
-  log_msg('%s - %s' % (hruntime.tid, msg), [hlib.config['log.channels.error']])
+  log_msg('%s - %s' % (hruntime.tid, msg), hruntime.app.channels.error)
 
 _transaction_log_lock = threading.RLock()
 def log_transaction(transaction, state, *args, **kwargs):

@@ -12,9 +12,9 @@ import hlib
 import hlib.database
 
 # pylint: disable-msg=F0401
-import hruntime
+import hruntime  # @UnresolvedImport
 
-hlib.config['i18n.token_coverage'] = True
+# hlib.config['i18n.token_coverage'] = True
 
 class TokenCoverage(object):
   def __init__(self):
@@ -76,7 +76,7 @@ class Language(hlib.database.DBObject):
     # pylint: disable-msg=W0201
     self.__dict__ = d
 
-    if hlib.config['i18n.token_coverage'] == True:
+    if True == True:
       if d['name'] not in COVERAGE:
         COVERAGE[d['name']] = TokenCoverage()
 

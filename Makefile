@@ -12,6 +12,8 @@ EPYDOC_OPTIONS := --config $(CONF_DIR)/makedoc.conf -c static/css/epydoc.css
 PYLINT_OPTIONS := --rcfile=$(CONF_DIR)/pylintrc -r no
 PYLINT_PACKAGES := events handlers http log ui
 
+NOSE_OPTIONS := -w $(ROOT_DIR)/tests/ --all-modules -v --with-id -d --with-xunit
+
 .PHONY: clean cloc doc pylint tests test_all
 
 clean:
@@ -54,7 +56,7 @@ tests:
 	@echo "----- ----- ----- ----- ----- ----- ----- ----- -----"
 	@echo "Nose tests"
 	@echo
-	@nosetests $(NOSE_OPTIONS)
+	@~/virtualenv/settlers/bin/nosetests $(NOSE_OPTIONS)
 	@echo "----- ----- ----- ----- ----- ----- ----- ----- -----"
 
 test_all: pylint coffeelint tests

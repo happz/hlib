@@ -2,13 +2,12 @@
 Methods for formating text output.
 """
 
-__author__              = 'Milos Prchlik'
-__copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
-__contact__             = 'happz@happz.cz'
-__license__             = 'http://www.php-suit.com/dpl'
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
 
 import markdown2
-import hlib
 
 # pylint: disable-msg=W0613
 def tagize(text):

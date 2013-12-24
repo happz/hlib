@@ -1,25 +1,18 @@
-"""
-Authentication and authorization functions
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
 
-@author:                Milos Prchlik
-@contact:               U{happz@happz.cz}
-@license:               DPL (U{http://www.php-suit.com/dpl})
-"""
-
-import hlib
-import hlib.datalayer
-import hlib.event
-import hlib.http
+import hlib.events
 import hlib.http.session
-import hlib.input
 
 # pylint: disable-msg=F0401
-import hruntime
+import hruntime # @UnresolvedImport
 
 def refresh_session():
   """
   When called, sets some default values based on session - current user and his
-  preffered language.
+  preferred language.
   """
 
   hruntime.response.headers['Cache-Control'] = 'must-revalidate, no-cache, no-store'
@@ -60,7 +53,7 @@ def check_session(redirect_to_login = True):
   Check if current session contains authenticated user record - if not, redirect request to
   login page.
 
-  @raise hlib.http.Redirect:	Raised when there is no session started, redirect user to login page.
+  @raise http.Redirect:	Raised when there is no session started, redirect user to login page.
   """
 
   if not hruntime.request.is_authenticated:
@@ -79,7 +72,7 @@ def logout(trigger_event = True):
   """
 
   if trigger_event == True:
-    hlib.event.trigger('system.UserLoggedOut', hruntime.dbroot.server, user = hruntime.user)
+    hlib.events.trigger('system.UserLoggedOut', hruntime.dbroot.server, user = hruntime.user)
 
   hruntime.session.destroy()
   hruntime.session = None

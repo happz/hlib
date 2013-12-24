@@ -2,40 +2,63 @@
 System statistics
 """
 
-__author__              = 'Milos Prchlik'
-__copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
-__contact__             = 'happz@happz.cz'
-__license__             = 'http://www.php-suit.com/dpl'
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
 
+import sys
 import threading
-import time
 import types
+import UserDict
 
-# pylint: disable-msg=F0401
-import hruntime
+class StatsDict(UserDict.UserDict):
+  def __init__(self, *args, **kwargs):
+    UserDict.UserDict.__init__(self, *args, **kwargs)
 
-stats = {
-}
+    self.lock = threading.RLock()
 
-stats_fmt = {
-  'Engine':			{
-    'Start time':		'%i',
-    'Current time':		'%i',
-  }
-}
+  def __get_last_dict(self, *keys):
+    with self.lock:
+      d = self
+      for k in keys[0:-1]:
+        d = d[k]
 
-stats_lock = threading.RLock()
+      return d
 
-def init_namespace(name, content):
-  with stats_lock:
-    stats[name] = content
+  def get(self, *keys):
+    return self.__get_last_dict(*keys)[keys[-1]]
 
-def swap_namespace(name, content):
-  with stats_lock:
-    stats[name] = content
+  def inc(self, *keys):
+    self.__get_last_dict(*keys)[keys[-1]] += 1
 
-def snapshot(d_in):
-  with stats_lock:
+  def add(self, *args):
+    keys = args[0:-1]
+    value = args[-1]
+
+    self.__get_last_dict(*keys)[keys[-1]] += value
+
+  def set(self, *args):
+    keys = args[0:-1]
+    value = args[-1]
+
+    self.__get_last_dict(*keys)[keys[-1]] = value
+
+  def remove(self, *keys):
+    del self.__get_last_dict(*keys)[keys[-1]]
+        
+  def swap(self, *args):
+    keys = args[0:-1]
+    value = args[-1]
+
+    d = self.__get_last_dict(*keys)
+    old_data = d[keys[-1]]
+    d[keys[-1]] = value
+    return old_data
+
+  def snapshot(self, d_in = None):
+    if d_in == None:
+      d_in = self.data
     d_out = {}
 
     for k, v in list(d_in.items()):
@@ -43,10 +66,10 @@ def snapshot(d_in):
         pass
 
       elif isinstance(v, dict):
-        v = snapshot(v)
+        v = self.snapshot(d_in = v)
 
       elif isinstance(v, (list, tuple)):
-        v = [snapshot(r) for r in v]
+        v = [self.snapshot(d_in = r) for r in v]
 
       elif hasattr(v, '__call__'):
         v = v(d_in)
@@ -54,6 +77,23 @@ def snapshot(d_in):
       d_out[k] = v
 
     return d_out
+
+  def __enter__(self):
+    self.lock.acquire()
+    return self
+
+  def __exit__(self, *args):
+    self.lock.release()
+    return False
+
+stats = StatsDict()
+
+stats_fmt = {
+  'Engine':			{
+    'Start time':		'%i',
+    'Current time':		'%i',
+  }
+}
 
 def iter_collection(collection):
   if type(collection) == types.DictType:

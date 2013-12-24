@@ -1,31 +1,69 @@
-import functools
-import random
-import time
-import types
-import sys
-import traceback
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
 
-import ZODB
+import sys
+
 import ZODB.DB
-import ZODB.FileStorage
+import ZODB.ActivityMonitor
 import ZODB.POSException
 import transaction
 import BTrees
 import persistent
-import ZODB.ActivityMonitor
+import threading
 
-import hlib
+import hlib.console
 import hlib.error
 import hlib.log
+from hlib.stats import stats as STATS
 
-import hruntime
+import hruntime # @UnresolvedImport
 
-from hlib.stats import stats, stats_lock
+class Command_Database(hlib.console.Command):
+  def __init__(self, console, parser):
+    super(Command_Database, self).__init__(console, parser)
 
-def log_transaction(state, *args, **kwargs):
-  hlib.log.log_transaction(transaction.get(), state, *args, tid = hruntime.tid, **kwargs)
+    self.parser.add_argument('--list', '-l', action = 'store_const', dest = 'action', const = 'list')
 
-_LT = log_transaction
+    self.parser.add_argument('--update-stats', action = 'store_const', dest = 'action', const = 'update-stats')
+    self.parser.add_argument('--enable-lt', action = 'store_const', dest = 'action', const = 'enable-lt')
+    self.parser.add_argument('--disable-lt', action = 'store_const', dest = 'action', const = 'disable-lt')
+    self.parser.add_argument('--pack', action = 'store_const', dest = 'action', const = 'pack')
+    self.parser.add_argument('--minimize-cache', action = 'store_const', dest = 'action', const = 'minimize-cache')
+
+    self.parser.add_argument('--name', action = 'store', dest = 'name')
+
+  def __get_db_by_name(self, args):
+    if 'name' not in args:
+      self.console.err_required_arg('name')
+
+    for app in self.console.engine.apps.values():
+      if app.db.name == args.name:
+        return app.db
+
+    raise hlib.console.CommandException('Unknown db \'%s\'' % args.name)
+
+  def handler(self, args):
+    if args.action == 'list':
+      return {'databases': [{'name': app.db.name, 'address': str(app.db.address)} for app in self.console.engine.apps.values()]}
+
+    if args.action == 'enable-lt':
+      return self.__get_db_by_name(args.name).set_transaction_logging(True)
+
+    if args.action == 'disable-lt':
+      return self.__get_db_by_name(args.name).set_transaction_logging(False)
+
+    if args.action == 'pack':
+      return self.__get_db_by_name(args.name).pack()
+
+    if args.action == 'minimize-cache':
+      return self.__get_db_by_name(args.name).minimize_cache()
+
+    if args.action == 'update-stats':
+      return self.__get_db_by_name(args.name).update_stats()
+
+    return {'args': str(args)}
 
 class CommitFailedError(hlib.error.BaseError):
   pass
@@ -40,13 +78,14 @@ class Storage_MySQL(Storage):
   @staticmethod
   def open(address):
     try:
+      import relstorage.storage
       import relstorage.adapters.mysql
+
       adapter = relstorage.adapters.mysql.MySQLAdapter(host = address.host,
                                                        user = address.user,
                                                        passwd = address.password,
                                                        db     = address.path)
 
-      import relstorage.storage
       return relstorage.storage.RelStorage(adapter)
 
     except Exception, e:
@@ -55,6 +94,8 @@ class Storage_MySQL(Storage):
 class Storage_File(Storage):
   @staticmethod
   def open(address):
+    import ZODB.FileStorage
+
     return ZODB.FileStorage.FileStorage(address.path)
 
 storage_classes = {
@@ -81,6 +122,9 @@ class DBAddress(object):
     if name in self._fields.keys():
       return self.fields[self._fields[name]]
 
+  def __str__(self):
+    return ':'.join(['%s=%s' % (k, getattr(self, k)) for k in self._fields.keys()])
+
 class DB(object):
   def __init__(self, name, address, **kwargs):
     super(DB, self).__init__()
@@ -90,31 +134,45 @@ class DB(object):
     self.db		= None
     self.root		= None
 
+    self.log_transaction_handler = self.__log_transaction
+    self.log_transaction_lock = threading.RLock()
+
     self.kwargs		= kwargs
 
     self.stats_name	= 'Database (%s)' % self.name
 
     # pylint: disable-msg=W0621
-    import hlib.stats
-    hlib.stats.init_namespace(self.stats_name, {
-      'Loads':		0,
-      'Stores':		0,
-      'Commits':		0,
-      'Rollbacks':		0,
-      'Failed commits':		0,
-      'Connections':	{},
-      'Caches':		{}
-    })
+    with STATS:
+      STATS.set(self.stats_name, {
+        'Loads': 0,
+        'Stores': 0,
+        'Commits': 0,
+        'Rollbacks': 0,
+        'Failed commits': 0,
+        'Connections': {},
+        'Caches': {}
+      })
 
-    import hlib.event
-    hlib.event.Hook('engine.ThreadFinished', 'hlib.database.DB(%s)' % self.name, self.on_thread_finished)
-    hlib.event.Hook('engine.RequestFinished', 'hlib.database.DB(%s)' % self.name, self.on_request_finished)
+    import events
+    events.Hook('engine.ThreadFinished', self.on_thread_finished)
+    events.Hook('engine.RequestFinished', self.on_request_finished)
 
   def on_thread_finished(self, _):
     self.update_stats()
 
   def on_request_finished(self, _):
     self.update_stats()
+
+  @property
+  def is_opened(self):
+    return self.db != None
+
+  def set_transaction_logging(self, enabled = True):
+    with self.log_transaction_lock:
+      if enabled:
+        self.log_transaction_handler = self.__log_transaction
+      else:
+        self.log_transaction_handler = self.__nolog_transaction
 
   def open(self):
     storage = storage_classes[self.address.storage].open(self.address)
@@ -132,29 +190,39 @@ class DB(object):
 
     return (connection, self.root)
 
+  def log_transaction(self, *args, **kwargs):
+    with self.log_transaction_lock:
+      self.log_transaction_handler(*args, **kwargs)
+
+  def __log_transaction(self, state, *args, **kwargs):
+    hlib.log.log_transaction(transaction.get(), state, *args, tid = hruntime.tid, **kwargs)
+
+  def __nolog_transaction(self, *args, **kwargs):
+    pass
+
   def start_transaction(self):
-    _LT("pre-create")
+    self.log_transaction("pre-create")
 
     transaction.abort()
     transaction.begin()
 
-    _LT('post-create')
+    self.log_transaction('post-create')
 
   def commit(self):
     try:
-      with stats_lock:
-        stats[self.stats_name]['Commits'] += 1
+      with STATS:
+        STATS.inc(self.stats_name, 'Commits')
 
-      _LT('pre-commit')
+      self.log_transaction('pre-commit')
       transaction.commit()
       self.doom()
-      _LT('post-commit')
+      self.log_transaction('post-commit')
 
     except ZODB.POSException.ConflictError, e:
-      _LT('post-commit-fail')
+      self.log_transaction('post-commit-fail')
 
-      with stats_lock:
-        stats[self.stats_name]['Failed commits'] += 1
+      with STATS:
+        STATS.inc(self.stats_name, 'Failed commits')
 
       print >> sys.stderr, 'Conflict Error:'
       print >> sys.stderr, '  class_name: ' + str(e.class_name)
@@ -172,57 +240,49 @@ class DB(object):
   def doom(self):
     hruntime.dont_commit = True
 
-    _LT('pre-doom')
+    self.log_transaction('pre-doom')
     transaction.doom()
-    _LT('post-doom')
+    self.log_transaction('post-doom')
 
   def rollback(self):
-    with stats_lock:
-      stats[self.stats_name]['Rollbacks'] += 1
+    with STATS:
+      STATS.inc(self.stats_name, 'Rollbacks')
 
-    _LT('pre-abort')
+    self.log_transaction('pre-abort')
     transaction.abort()
     self.doom()
-    _LT('post-abort')
+    self.log_transaction('post-abort')
 
   def pack(self):
     self.db.pack()
 
+  def minimize_cache(self):
+    self.db.minimizeCache()
+
   def update_stats(self):
     data = self.db.getActivityMonitor().getActivityAnalysis(divisions = 1)[0]
+    connections = {}
+    caches = {}
 
-    with stats_lock:
-      d = stats[self.stats_name]
+    i = 0
+    for data in self.db.connectionDebugInfo():
+      connections[i] = {
+        'Opened': data['opened'],
+        'Info': data['info'],
+        'Before': data['before']
+      }
 
-      d['Loads']		= data['loads']
-      d['Stores']		= data['stores']
+    for data in self.db.cacheDetailSize():
+      caches[data['connection']] = {
+        'Non-ghost size': data['ngsize'],
+        'Size': data['size']
+      }
 
-      d['Connections']		= {}
-      d['Caches']		= {}
-
-      i = 0
-      for data in self.db.connectionDebugInfo():
-        d['Connections'][i] = {
-          'Opened':		data['opened'],
-          'Info':		data['info'],
-          'Before':		data['before']
-        }
-
-      for data in self.db.cacheDetailSize():
-        d['Caches'][data['connection']] = {
-          'Non-ghost size':	data['ngsize'],
-          'Size':		data['size']
-        }
-
-def abstract_method(obj = None):
-  """
-  Wrapper for unimplemented functions.
-
-  @param obj:			Class object in which calling method was unimplemented.
-  @raise UnimplementedError:	Every time
-  """
-
-  raise hlib.error.UnimplementedError(obj)
+    with STATS:
+      STATS.set(self.stats_name, 'Load', data['loads'] if 'loads' in data else 0)
+      STATS.set(self.stats_name, 'Stores', data['stores'] if 'stores' in data else 0)
+      STATS.set(self.stats_name, 'Connections', connections)
+      STATS.set(self.stats_name, 'Caches', caches)
 
 class DBObject(persistent.Persistent):
   def __init__(self, *args, **kwargs):
@@ -245,14 +305,13 @@ class DBObject(persistent.Persistent):
     return False
 
   def _p_resolveConflict(self, oldState, savedState, newState):
-    _LT('pre-conflict-resolve')
+    hruntime.db.log_transaction('pre-conflict-resolve')
 
     # just log and fail
     resolved = True
     resultState = savedState.copy()
 
     try:
-      import hruntime
       print >> sys.stderr, 'DB Conflict detected:'
       if hruntime.user:
         print >> sys.stderr, '  User: %s' % hruntime.user.name.encode('ascii', 'replace')
@@ -273,7 +332,7 @@ class DBObject(persistent.Persistent):
       print >> sys.stderr, e
 
     finally:
-      _LT('post-conflict-resolve')
+      hruntime.db.log_transaction('post-conflict-resolve')
       if not resolved:
         raise ZODB.POSException.ConflictError
 
@@ -344,11 +403,11 @@ class IndexedMapping(DBObject):
   def last(self):
     return self.data[self.data.maxKey()]
 
-from BTrees.IOBTree import IOBTree as TreeMapping
+from BTrees.IOBTree import IOBTree as TreeMapping  # @UnusedImport
 from BTrees.OOBTree import OOBTree as StringMapping
 ObjectMapping = StringMapping
 
-from persistent.list import PersistentList as SimpleList
-from persistent.mapping import PersistentMapping as SimpleMapping
+from persistent.list import PersistentList as SimpleList  # @UnusedImport
+from persistent.mapping import PersistentMapping as SimpleMapping  # @UnusedImport
 
-from BTrees.Length import Length
+from BTrees.Length import Length  # @UnusedImport

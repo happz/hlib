@@ -1,12 +1,18 @@
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
+
 from hlib.events import Event
 
 class ThreadEvent(Event):
   dont_store = True
 
-  def __init__(self, server, *args, **kwargs):
+  def __init__(self, server, thread, *args, **kwargs):
     Event.__init__(self, *args, **kwargs)
 
-    self.server		= server
+    self.server = server
+    self.thread = thread
 
 class Started(Event):
   dont_store = True
@@ -35,14 +41,12 @@ class RequestFinished(Event):
 class RequestClosed(Event):
   dont_store = True
 
-import hlib
-
-hlib.register_event(Started)
-hlib.register_event(Halted)
-hlib.register_event(ThreadStarted)
-hlib.register_event(ThreadFinished)
-hlib.register_event(RequestConnected)
-hlib.register_event(RequestAccepted)
-hlib.register_event(RequestStarted)
-hlib.register_event(RequestFinished)
-hlib.register_event(RequestClosed)
+Started.register()
+Halted.register()
+ThreadStarted.register()
+ThreadFinished.register()
+RequestConnected.register()
+RequestAccepted.register()
+RequestStarted.register()
+RequestFinished.register()
+RequestClosed.register()

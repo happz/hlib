@@ -1,16 +1,20 @@
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
+
 import cPickle
 import hashlib
 import random
-# pylint: disable-msg=W0402
 import string
 import threading
 import UserDict
 
-import hlib
-import hlib.event
+import hlib.server
+from hlib.stats import stats as STATS
 
 # pylint: disable-msg=F0401
-import hruntime
+import hruntime  # @UnresolvedImport
 
 __all__ = []
 
@@ -31,9 +35,11 @@ class Storage(UserDict.UserDict):
     self.__online	= None
     self.__online_ctime	= 0
 
-    import hlib.stats
-    hlib.stats.init_namespace('Sessions (%s)' % self.app.name, {
-      'Active':		lambda s: ', '.join(self.online_users)
+    self.stats_name = 'Sessions (%s)' % self.app.name
+
+    with STATS:
+      STATS.set(self.stats_name, {
+      'Active': lambda s: ', '.join(self.online_users)
     })
 
   @property
@@ -167,7 +173,7 @@ class Session(object):
     self.code		= None
     self.sid		= None
     self.time		= time
-    self.ip		= hlib.ips_to_str(ips)
+    self.ip		= hlib.server.ips_to_str(ips)
 
     self.gen_sid()
 
@@ -178,7 +184,7 @@ class Session(object):
       'tainted':		self.tainted if hasattr(self, 'tainted') else None
     }
 
-    return 'hlib.session.Session(sid = \'%s\', time = \'%s\', ip = \'%s\', age = \'%s\', data = \'%s\')' % (self.sid, self.time, self.ip, hruntime.time - self.time, data)
+    return 'session.Session(sid = \'%s\', time = \'%s\', ip = \'%s\', age = \'%s\', data = \'%s\')' % (self.sid, self.time, self.ip, hruntime.time - self.time, data)
 
   def __getattr__(self, name):
     if name == 'age':
@@ -195,14 +201,14 @@ class Session(object):
 
   @staticmethod
   def create():
-    return hlib.http.session.Session(hruntime.app.sessions, hruntime.time, hruntime.request.ips)
+    return Session(hruntime.app.sessions, hruntime.time, hruntime.request.ips)
 
   def gen_sid(self):
     self.code		= gen_rand_string(10)
-    self.sid		= hashlib.md5('%s-%s-%s' % (hlib.ips_to_str(hruntime.request.ips), hruntime.time, self.code)).hexdigest()
+    self.sid		= hashlib.md5('%s-%s-%s' % (hlib.server.ips_to_str(hruntime.request.ips), hruntime.time, self.code)).hexdigest()
 
   def check(self):
-    if self.ip != hlib.ips_to_str(hruntime.request.ips):
+    if self.ip != hlib.server.ips_to_str(hruntime.request.ips):
       return False
 
     self.time = hruntime.time

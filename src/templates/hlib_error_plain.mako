@@ -34,7 +34,7 @@ Exception occured at ${error.file}:${error.line}
   TID: ${hruntime.tid}
 
   Runtime:
-  % for p in (list(hruntime.properties) + ['cache', 'time']):
+  % for p in (hruntime.PROPERTIES + ['cache', 'time', 'localtime']):
     ${p}: ${getattr(hruntime, p)}
   % endfor
 

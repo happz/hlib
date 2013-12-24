@@ -15,12 +15,12 @@ class ValidatePage(hlib.input.SchemaValidator):
   Input validator
 
   @ivar start:    Starting offset of requested page
-  @type start:    L{hlib.input.Validator}
+  @type start:    L{input.Validator}
   @ivar length:    Number of items on requested page
-  @type length:    L{hlib.input.Validator}
+  @type length:    L{input.Validator}
   """
-  start  = hlib.input.validator_factory(hlib.input.NotEmpty, hlib.input.Int)
-  length = hlib.input.validator_factory(hlib.input.NotEmpty, hlib.input.Int)
+  start  = hlib.input.validator_factory(hlib.input.NotEmpty, hlib.input.Int(min = 0))
+  length = hlib.input.validator_factory(hlib.input.NotEmpty, hlib.input.Int(min = 1))
 
 class Page(hlib.api.ApiJSON):
   """

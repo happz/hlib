@@ -1,17 +1,23 @@
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
+
 import sys
 import types
 import urllib
 
 import hlib
+import hlib.auth
 import hlib.error
+import hlib.http
+import hlib.i18n
+import hlib.input
 import hlib.log
 import hlib.server
 import hlib.ui.templates.Mako
 
-# pylint: disable-msg=F0401
-import hlib.http
-
-import hruntime
+import hruntime  # @UnresolvedImport
 
 __all__ = ['tag_fn', 'prohibited', 'require_login', 'require_admin', 'require_write', 'require_hosts',
            'page',

@@ -1,20 +1,15 @@
-"""
-Basic database objects
-"""
-
-__author__              = 'Milos Prchlik'
-__copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
-__contact__             = 'happz@happz.cz'
-__license__             = 'http://www.php-suit.com/dpl'
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
 
 import hlib.database
-from hlib.database import DBObject
-import hlib.http
+import hlib.i18n
+
+from database import DBObject
 
 # pylint: disable-msg=F0401
-import hruntime
-
-import sys
+import hruntime # @UnresolvedImport
 
 class Root(DBObject):
   def __init__(self):

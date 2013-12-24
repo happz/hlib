@@ -64,7 +64,7 @@ class HandlersTests(TestCase):
 
     self.reset_hruntime(handler_fns.handler_echo_json, {'ping': 'foo'})
     self.check_hruntime({'pong': 'foo'}, hlib.api.ApiIORegime.run_handler())
-    
+
     self.reset_hruntime(handler_fns.handler_undefined_var, {})
     self.check_hruntime({'status': 500, 'error': {'message': 'global name \'b\' is not defined', 'params': {}}}, hlib.api.ApiIORegime.run_handler())
 

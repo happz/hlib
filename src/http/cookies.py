@@ -1,18 +1,10 @@
-"""
-Support for HTTP cookies.
-"""
-
-__author__              = 'Milos Prchlik'
-__copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
-__contact__             = 'happz@happz.cz'
-__license__             = 'http://www.php-suit.com/dpl'
-
-import hlib
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
 
 # pylint: disable-msg=F0401
-import hruntime
-
-hlib.config['cookies.default_max_age'] = 		 604800		# 1 week
+import hruntime  # @UnresolvedImport
 
 class Cookie(object):
   """
@@ -36,7 +28,7 @@ class Cookie(object):
     self.server			= server
     self.name			= name
     self.value			= value and str(value) or ''
-    self.max_age		= int(max_age or (self.server and hasattr(self.server, 'cookie_max_age') and self.server.cookie_max_age or hlib.config['cookies.default_max_age']))
+    self.max_age		= int(max_age or (self.server and hasattr(self.server, 'cookie_max_age') and self.server.cookie_max_age))
     self.path			= path or '/'
 
   def __repr__(self):

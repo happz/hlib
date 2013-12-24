@@ -1,39 +1,40 @@
-__author__		= 'Milos Prchlik'
-__copyright__		= 'Copyright 2010 - 2012, Milos Prchlik'
-__contact__		= 'happz@happz.cz'
-__license__		= 'http://www.php-suit.com/dpl'
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
 
+import functools
 import sys
 import threading
 
-import hlib.stats
+from hlib.stats import stats as STATS
 
 class Cache(object):
   def __init__(self, name, app):
     super(Cache, self).__init__()
 
-    self.name		= name
-    self.app		= app
+    self.name = name
+    self.app = app
 
     self.lock		= threading.RLock()
     self.objects	= {}
 
-    self.stats_name		= 'Cache (%s - %s)' % (self.app.name, self.name)
+    self.stats_name = 'Cache (%s - %s)' % (self.app.name, self.name)
 
-    with hlib.stats.stats_lock:
-      hlib.stats.stats[self.stats_name] = {
-        'Total objects':	lambda s: sum([len(chain) for chain in self.objects.values()]),
-        'Total chains':		lambda s: len(self.objects),
-        'Total size':		lambda s: sum([sum([sys.getsizeof(v) for v in chain.values()]) for chain in self.objects.values()]),
-        'Hits':			0,
-        'Misses':		0,
-        'Inserts':		0,
-        'Chains':		lambda s: self.to_stats()
-      }
+    with STATS:
+      STATS.set(self.stats_name, {
+        'Total objects': lambda s: sum([len(chain) for chain in self.objects.values()]),
+        'Total chains': lambda s: len(self.objects),
+        'Total size': lambda s: sum([sum([sys.getsizeof(v) for v in chain.values()]) for chain in self.objects.values()]),
+        'Hits': 0,
+        'Misses': 0,
+        'Inserts': 0,
+        'Chains': lambda s: self.to_stats()
+      })
 
-  def __inc_stats(self, name):
-    with hlib.stats.stats_lock:
-      hlib.stats.stats[self.stats_name][name] += 1
+  def stats_inc(self, key):
+    with STATS:
+      STATS.inc(self.stats_name, key)
 
   def __chain_init(self, user):
     if user not in self.objects:
@@ -67,10 +68,9 @@ class Cache(object):
       chain = self.__chain_init(user)
 
       if key in chain:
-        self.__inc_stats('Hits')
-
+        self.stats_inc('Hits')
       else:
-        self.__inc_stats('Misses')
+        self.stats_inc('Misses')
 
       return chain.get(key, default)
 
@@ -83,7 +83,7 @@ class Cache(object):
 
       chain[key] = value
 
-    self.__inc_stats('Inserts')
+    self.stats_inc('Inserts')
 
   def test_and_set(self, user, key, callback, *args, **kwargs):
     if not self.__check_caching_status(key):
@@ -93,12 +93,12 @@ class Cache(object):
       chain = self.__chain_init(user)
 
       if key not in chain:
-        self.__inc_stats('Misses')
+        self.stats_inc('Hits')
         chain[key] = callback(*args, **kwargs)
-        self.__inc_stats('Inserts')
+        self.stats_inc('Inserts')
 
       else:
-        self.__inc_stats('Hits')
+        self.stats_inc('Hits')
 
       return chain[key]
 

@@ -1,29 +1,21 @@
-"""
-JSON API support.
-"""
-
-__author__              = 'Milos Prchlik'
-__copyright__           = 'Copyright 2010 - 2012, Milos Prchlik'
-__contact__             = 'happz@happz.cz'
-__license__             = 'http://www.php-suit.com/dpl'
+__author__ = 'Milos Prchlik'
+__copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
+__contact__ = 'happz@happz.cz'
+__license__ = 'http://www.php-suit.com/dpl'
 
 import hashlib
 import json
-import sys
 import threading
-import traceback
 import types
 
 import hlib.error
 import hlib.handlers
-import hlib.http
 import hlib.http.session
 import hlib.input
 import hlib.log
-import hlib.server
 
 # pylint: disable-msg=F0401
-import hruntime
+import hruntime # @UnresolvedImport
 
 API_TOKEN_LENGTH = 32
 
@@ -50,6 +42,9 @@ class ApiIORegime(hlib.handlers.IORegime):
 
       if hasattr(r, 'dump'):
         return r.dump()
+
+      if hasattr(r, 'get_serializer'):
+        return r.get_serializer().serialize(r)
 
       if type(r) == types.DictType:
         return Raw(r).dump()
@@ -84,7 +79,7 @@ class ApiIORegime(hlib.handlers.IORegime):
 class ApiTokenIORegime(ApiIORegime):
   @staticmethod
   def check_session():
-    hlib.input.validate(schema = hlib.api.ValidateAPIToken)
+    hlib.input.validate(schema = api.ValidateAPIToken)
 
     token = hruntime.request.params['api_token']
 
@@ -97,15 +92,15 @@ class ApiTokenIORegime(ApiIORegime):
     except KeyError:
       raise hlib.http.Prohibited()
 
-api				= lambda f: hlib.handlers.tag_fn(f, 'ioregime', ApiIORegime)
-api_token			= lambda f: hlib.handlers.tag_fn(f, 'ioregime', ApiTokenIORegime)
+api = lambda f: hlib.handlers.tag_fn(f, 'ioregime', ApiIORegime)
+api_token = lambda f: hlib.handlers.tag_fn(f, 'ioregime', ApiTokenIORegime)
 
 #
 # Encoders
 #
 class JSONEncoder(json.JSONEncoder):
   """
-  Custom JSON encoder, able to encode L{hlib.api.ApiJSON} objects.
+  Custom JSON encoder, able to encode L{api.ApiJSON} objects.
 
   @see:				http://docs.python.org/library/json.html#encoders-and-decoders
   """
@@ -237,8 +232,8 @@ class ValidateAPIToken(hlib.input.SchemaValidator):
   API token validator
 
   API token must be
-    - string (L{hlib.input.CommonString})
-    - exactly 32 (length of MD5 username hash) + L{API_TOKEN_LENGTH} characters long (L{lib.input.MinLength}, L{hlib.input.MaxLength})
+    - string (L{input.CommonString})
+    - exactly 32 (length of MD5 username hash) + L{API_TOKEN_LENGTH} characters long (L{lib.input.MinLength}, L{input.MaxLength})
   """
 
   api_token = hlib.input.validator_factory(hlib.input.CommonString(), hlib.input.MinLength(32 + API_TOKEN_LENGTH), hlib.input.MaxLength(32 + API_TOKEN_LENGTH))
