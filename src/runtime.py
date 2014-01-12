@@ -4,7 +4,7 @@ import time
 
 class Runtime(object):
   PROPERTIES = ['user', 'db', 'dbconn', 'dbroot', 'root', 'server', 'dont_commit', 'ui_form', 'app', 'request', 'response', 'session', 'i18n',
-                'tid', 'service_server', 'service_thread']
+                'tid', 'service_engine', 'service_server', 'service_thread']
 
   RESET_PROPERTIES = ['user', 'dbconn', 'dbroot', 'server', 'dont_commit', 'ui_form', 'request', 'response', 'session', 'i18n']
 

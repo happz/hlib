@@ -10,6 +10,7 @@ import threading
 
 import hlib
 import hlib.database
+import hlib.locks
 
 # pylint: disable-msg=F0401
 import hruntime  # @UnresolvedImport
@@ -20,7 +21,7 @@ class TokenCoverage(object):
   def __init__(self):
     super(TokenCoverage, self).__init__()
 
-    self.lock = threading.RLock()
+    self.lock = hlib.locks.RLock(name = 'Token coverage')
 
     self.hits		= {}
     self.misses		= {}
@@ -76,11 +77,13 @@ class Language(hlib.database.DBObject):
     # pylint: disable-msg=W0201
     self.__dict__ = d
 
-    if True == True:
+    if False == True:
       if d['name'] not in COVERAGE:
         COVERAGE[d['name']] = TokenCoverage()
 
       self.coverage = COVERAGE[d['name']]
+    else:
+      self.coverage = None
 
   def __getitem__(self, name):
     if name in self.tokens:

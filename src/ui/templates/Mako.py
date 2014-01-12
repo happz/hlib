@@ -13,9 +13,11 @@ import mako.lookup
 import mako.template
 import threading
 
+import hlib.locks
 import hlib.ui.templates
 
-render_lock = threading.RLock()
+load_lock = hlib.locks.RLock(name = 'Load lock')
+render_lock = hlib.locks.RLock(name = 'Render lock')
 
 class Template(hlib.ui.templates.Template):
   """
@@ -28,20 +30,21 @@ class Template(hlib.ui.templates.Template):
     super(Template, self).__init__(*args, **kwargs)
 
     # pylint: disable-msg=E1101
-    self.loader = mako.lookup.TemplateLookup(directories = self.app.config['templates.dirs'], module_directory = self.app.config['templates.tmp_dir'], output_encoding = self.encoding, encoding_errors = self.encoding_errors, filesystem_checks = True, input_encoding = 'utf-8')
+    self.loader = mako.lookup.TemplateLookup(directories = self.app.config['templates.dirs'], module_directory = self.app.config['templates.tmp_dir'], output_encoding = self.encoding, encoding_errors = self.encoding_errors, filesystem_checks = False, input_encoding = 'utf-8')
 
   def load(self, text = None):
-    if text == None:
-      self.template = self.loader.get_template(self.name)
+    with load_lock:
+      if text == None:
+        self.template = self.loader.get_template(self.name)
 
-    else:
-      self.template = mako.template.Template(text = text, lookup = self.loader, input_encoding = self.encoding, output_encoding = self.encoding)
+      else:
+        self.template = mako.template.Template(text = text, lookup = self.loader, input_encoding = self.encoding, output_encoding = self.encoding)
 
     return self
 
   def do_render(self):
-    with render_lock:
-      return self.template.render(**self.params)
+    #with render_lock:
+    return self.template.render(**self.params)
 
   @staticmethod
   def render_error():

@@ -19,7 +19,7 @@ import hlib.server
 
 import hruntime  # @UnresolvedImport
 
-hruntime.tid = None
+hruntime.tid = 'Master thread'
 
 class ConfigFile(ConfigParser.ConfigParser):
   def __init__(self, default = None):
@@ -76,6 +76,7 @@ class Runner(object):
     access = __get_channel('access')
     error = __get_channel('error')
     transactions = __get_channel('transactions')
+    events = __get_channel('events')
 
     # Setup database
     db_address = hlib.database.DBAddress(config.get('database', 'address'))
@@ -108,7 +109,8 @@ class Runner(object):
     }
 
     app = hlib.engine.Application('settlers', root, db, app_config)
-    app.sessions = hlib.http.session.FileStorage(config.get('session', 'storage_path'), app)
+    # app.sessions = hlib.http.session.FileStorage(config.get('session', 'storage_path'), app)
+    app.sessions = hlib.http.session.FileBackedMemoryStorage(config.get('session', 'storage_path'), app)
     app.config['sessions.time']   = config.get('session', 'time')
     app.config['sessions.cookie_name']  = config.get('session', 'cookie_name')
 
@@ -116,6 +118,7 @@ class Runner(object):
     app.channels.add('access', access)
     app.channels.add('error', stderr, error)
     app.channels.add('transactions', transactions)
+    app.channels.add('events', stderr, events)
 
     if on_app_config:
       on_app_config(app, config)

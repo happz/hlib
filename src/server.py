@@ -15,8 +15,11 @@ import hlib.engine
 import hlib.error
 import hlib.events
 import hlib.handlers
+import hlib.locks
 import hlib.log
 import hlib.http
+
+from collections import OrderedDict
 from hlib.stats import stats as STATS
 
 # pylint: disable-msg=F0401
@@ -32,6 +35,7 @@ class Command_Server(hlib.console.Command):
     self.parser.add_argument('--kill-thread', action = 'store_const', dest = 'action', const = 'kill-thread')
     self.parser.add_argument('--flush-threads', action = 'store_const', dest = 'action', const = 'kill-threads')
     self.parser.add_argument('--info', '-i', action = 'store_const', dest = 'action', const = 'info')
+    self.parser.add_argument('--threads', '-t', action = 'store_const', dest = 'action', const = 'threads')
 
     self.parser.add_argument('--name', action = 'store', dest = 'name')
     self.parser.add_argument('--count', action = 'store', dest = 'count', type = int)
@@ -77,6 +81,20 @@ class Command_Server(hlib.console.Command):
         'address': '%s:%s' % (server.config['host'], str(server.config['port']))
       }
 
+    if args.action == 'threads':
+      threads = threading.enumerate()
+
+      return {
+        'thread_cnt': len(threads),
+        'threads': [
+          {
+            'name': thread.name,
+            'ident': thread.ident,
+            'daemon': 'yes' if thread.daemon == True else 'no'
+          } for thread in threads
+        ]
+      }
+
     return {'args': str(args)}
 
 def ips_to_str(ips):
@@ -90,17 +108,66 @@ class MultipartPiece(object):
     self.data = None
 
 class Thread(threading.Thread):
-  def __init__(self, pool, *args, **kwargs):
-    threading.Thread.__init__(self, *args, **kwargs)
+  def __init__(self, pool, name, *args, **kwargs):
+    threading.Thread.__init__(self, *args, name = name, **kwargs)
 
     self.setDaemon(True)
     self.pool = pool
 
+  def work(self):
+    pass
+
   def run(self):
+    hlib.events.trigger('engine.ThreadStarted', None, server = self.pool.server, thread = hruntime.service_thread)
+
+    self.work()
+
+    hlib.events.trigger('engine.ThreadFinished', None, server = self, thread = hruntime.service_thread)
+
+class Producer(Thread):
+  def __init__(self, *args, **kwargs):
+    Thread.__init__(self, *args, **kwargs)
+
+    self.result = None
+    self.error = None
+
+  def produce(self):
+    pass
+
+  @property
+  def failed(self):
+    return self.error != None
+
+  def work(self):
+    hruntime.clean()
+    hruntime.db.start_transaction()
+
+    hruntime.dont_commit = True
+
+    try:
+      self.result = self.produce()
+    except Exception, e:
+      hruntime.dont_commit = True
+      self.error = e
+
+    if hruntime.dont_commit != False:
+      hruntime.db.rollback()
+      return
+
+    if hruntime.db.commit() == True:
+      return
+
+    hruntime.db.rollback()
+
+class Worker(Thread):
+  def __init__(self, *args, **kwargs):
+    Thread.__init__(self, *args, **kwargs)
+
+    self.lru_ips = []
+
+  def work(self):
     POOL = self.pool
     SERVER = POOL.server
-
-    hlib.events.trigger('engine.ThreadStarted', None, server = SERVER, thread = hruntime.service_thread)
 
     while True:
       # Pick up new request from queue
@@ -245,8 +312,10 @@ class Thread(threading.Thread):
         SERVER.shutdown_request(request.request)
         POOL.finish_request()
 
-    hlib.events.trigger('engine.ThreadFinished', None, server = self, thread = hruntime.service_thread)
-    POOL.remove_thread()
+  def run(self):
+    Thread.run(self)
+
+    self.pool.remove_thread()
 
 class ThreadRequest(object):
   TYPE_REQUEST = 0
@@ -281,7 +350,7 @@ class ThreadPool(object):
     self.limit = limit
     self.server = server
 
-    self.lock	= threading.RLock()
+    self.lock	= hlib.locks.RLock(name = 'ThreadPool lock')
     self.worker_index = 0
     self.current_count = 0
     self.free_count	= 0
@@ -293,42 +362,44 @@ class ThreadPool(object):
     self.stats_name	= 'Pool (%s)' % self.server.name
 
     with STATS:
-      STATS.set(self.stats_name, {
-        'Queue size': lambda s: self.queue.qsize(),
-        'Current threads': lambda s: self.current_count,
-        'Free threads': lambda s: self.free_count,
-        'Total threads started': 0,
-        'Total threads finished': 0,
-        'Threads': {}
-      })
+      STATS.set(self.stats_name, OrderedDict([
+        ('Queue size', lambda s: self.queue.qsize()),
+        ('Current threads', lambda s: self.current_count),
+        ('Free threads', lambda s: self.free_count),
+        ('Total threads started', 0),
+        ('Total threads finished', 0),
+        ('Threads', {})
+      ]))
 
   # Event handlers
   def on_thread_start(self, _):
     # Setup hruntime info, and set stats record
 
+    hruntime.service_engine = self.server.engine
     hruntime.service_server = self.server
     hruntime.service_thread = threading.current_thread()
     hruntime.tid = hruntime.service_thread.name
 
+    STATS.set(self.stats_name, 'Threads', hruntime.tid, OrderedDict([
+      ('Start time', time.time()),
+      ('Uptime', lambda s: time.time() - s['Start time']),
+      ('Time per request', lambda s: (float(s['Total time']) / float(s['Total requests'])) if s['Total requests'] > 0 else 0.0)
+    ]))
+
     with STATS:
-      STATS.set(self.stats_name, 'Threads', hruntime.tid, {
-        'Start time': time.time(),
-        'Uptime': lambda s: time.time() - s['Start time'],
-      })
       STATS.inc(self.stats_name, 'Total threads started')
 
   def on_thread_finished(self, _):
     # Update stats, nothing else is needed
 
     with STATS:
-      STATS.remove(self.stats_name, 'Threads', hruntime.tid)
       STATS.inc(self.stats_name, 'Total threads finished')
+    STATS.remove(self.stats_name, 'Threads', hruntime.tid)
 
   def on_request_connected(self, _):
     # Update stats, nothing else is needed
 
-    with STATS:
-      STATS.inc(self.stats_name, 'Threads', hruntime.tid, 'Total requests')
+    STATS.inc(self.stats_name, 'Threads', hruntime.tid, 'Total requests')
 
   def add_request(self, request):
     with self.lock:
@@ -368,7 +439,7 @@ class ThreadPool(object):
     """
 
     with self.lock:
-      t = Thread(self, name = 'worker-' + str(self.worker_index + 1))
+      t = Worker(self, 'worker-' + str(self.worker_index + 1))
       t.start()
 
       self.threads[t.name] = t
@@ -411,6 +482,8 @@ class ThreadPool(object):
 
   def stop(self):
     self.kill_threads()
+
+    hlib.locks.save_stats('lock_debug.dat')
 
     sleep = True
     while sleep:

@@ -7,6 +7,8 @@ import argparse
 import json
 import os
 
+import hlib.locks
+
 class HelpAction(argparse._HelpAction):
   def __init__(self, *args, **kwargs):
     super(HelpAction, self).__init__(*args, **kwargs)
@@ -42,6 +44,8 @@ class Command_Sys(Command):
     self.parser.add_argument('--version', action = 'store_const', dest = 'action', const = 'version')
     self.parser.add_argument('--crash', action = 'store_const', dest = 'action', const = 'crash')
 
+    self.parser.add_argument('--locks', action = 'store_const', dest = 'action', const = 'locks')
+
   def handler(self, args):
     if args.action == 'quit':
       self.console.stop()
@@ -50,6 +54,9 @@ class Command_Sys(Command):
 
     if args.action == 'crash':
       os._exit(0)
+
+    if args.action == 'locks':
+      hlib.locks.save_stats('lock_debug.dat')
 
 class Command_Help(Command):
   def __init__(self, console, parser):

@@ -7,6 +7,8 @@ import functools
 import sys
 import threading
 
+import hlib.locks
+
 from hlib.stats import stats as STATS
 
 class Cache(object):
@@ -16,7 +18,7 @@ class Cache(object):
     self.name = name
     self.app = app
 
-    self.lock		= threading.RLock()
+    self.lock = hlib.locks.RLock(name = 'Cache')
     self.objects	= {}
 
     self.stats_name = 'Cache (%s - %s)' % (self.app.name, self.name)

@@ -24,6 +24,11 @@ where options can be:
 def main(root, config_defaults, on_app_config):
   optlist, _ = getopt.getopt(sys.argv[1:], 'c:h')
 
+  import atexit
+  import hlib.locks
+
+  #atexit.register(hlib.locks.save_stats, 'lock_debug.dat')
+
   for o in optlist:
     if o[0] == '-h':
       usage()

@@ -2,6 +2,9 @@ import datetime
 import threading
 import time
 
+import hlib.events
+import hlib.locks
+
 class __AllMatch(set):
   def __contains__(self, item):
     return True
@@ -38,40 +41,45 @@ class Task(object):
             and (t.month in self.months)
             and (t.weekday() in self.dow))
 
-  def run(self, t):
-    if not self.matchtime(t):
-      return
-
-    print '%s time matched' % self.name
-
-    self.callback(*self.args, **self.kwargs)
+  def run(self, engine, app):
+    self.callback(*self.args, engine = engine, app = app, **self.kwargs)
 
 class SchedulerThread(threading.Thread):
   def __init__(self, engine, *args, **kwargs):
-    threading.Thread.__init__(self, *args, **kwargs)
+    threading.Thread.__init__(self, *args, name = 'Scheduler thread "%s"' % engine.name, **kwargs)
 
     self.daemon = True
     self.engine = engine
 
-    self.lock = threading.RLock()
+    self.lock = hlib.locks.RLock(name = 'Scheduler tasks lock')
     self.tasks = {}
 
-  def add_task(self, task):
+  def add_task(self, task, app):
     with self.lock:
-      self.tasks[task.name] = task
+      self.tasks[task.name] = (task, app)
 
   def remove_task(self, task):
     with self.lock:
       del self.tasks[task.name]
 
   def run(self):
+    sleep_until = datetime.datetime.now() + datetime.timedelta(minutes = 1)
+
     while True:
-      t = datetime.datetime(*datetime.datetime.now().timetuple()[:5])
+      while True:
+        current_time = datetime.datetime.now()
+
+        if current_time >= sleep_until:
+          break
+
+        time.sleep(20)
 
       with self.lock:
-        for task in self.tasks.values():
-          task.run(t)
+        for task, app in self.tasks.values():
+          if not task.matchtime(current_time):
+            continue
 
-      t += datetime.timedelta(minutes = 1)
-      while datetime.datetime.now() < t:
-        time.sleep((t - datetime.datetime.now()).seconds)
+          hlib.events.trigger('engine.ScheduledTaskTriggered', None, engine = self.engine, app = app, task = task)
+          task.run(self.engine, app)
+
+      sleep_until = datetime.datetime.now() + datetime.timedelta(minutes = 1)

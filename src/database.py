@@ -15,6 +15,7 @@ import threading
 
 import hlib.console
 import hlib.error
+import hlib.locks
 import hlib.log
 from hlib.stats import stats as STATS
 
@@ -30,7 +31,7 @@ class Command_Database(hlib.console.Command):
     self.parser.add_argument('--enable-lt', action = 'store_const', dest = 'action', const = 'enable-lt')
     self.parser.add_argument('--disable-lt', action = 'store_const', dest = 'action', const = 'disable-lt')
     self.parser.add_argument('--pack', action = 'store_const', dest = 'action', const = 'pack')
-    self.parser.add_argument('--minimize-cache', action = 'store_const', dest = 'action', const = 'minimize-cache')
+    self.parser.add_argument('--gc', action = 'store_const', dest = 'action', const = 'gc')
 
     self.parser.add_argument('--name', action = 'store', dest = 'name')
 
@@ -57,8 +58,8 @@ class Command_Database(hlib.console.Command):
     if args.action == 'pack':
       return self.__get_db_by_name(args.name).pack()
 
-    if args.action == 'minimize-cache':
-      return self.__get_db_by_name(args.name).minimize_cache()
+    if args.action == 'gc':
+      return self.__get_db_by_name(args.name).globalGC()
 
     if args.action == 'update-stats':
       return self.__get_db_by_name(args.name).update_stats()
@@ -134,8 +135,8 @@ class DB(object):
     self.db		= None
     self.root		= None
 
-    self.log_transaction_handler = self.__log_transaction
-    self.log_transaction_lock = threading.RLock()
+    self.log_transaction_handler = self.__nolog_transaction
+    self.log_transaction_lock = hlib.locks.RLock(name = 'Transaction logging setup')
 
     self.kwargs		= kwargs
 
@@ -167,7 +168,7 @@ class DB(object):
   def is_opened(self):
     return self.db != None
 
-  def set_transaction_logging(self, enabled = True):
+  def set_transaction_logging(self, enabled = False):
     with self.log_transaction_lock:
       if enabled:
         self.log_transaction_handler = self.__log_transaction
@@ -191,6 +192,9 @@ class DB(object):
     return (connection, self.root)
 
   def log_transaction(self, *args, **kwargs):
+    # Transaction logging is broken - because of locking - lock is required even for NOP action :(
+    return
+
     with self.log_transaction_lock:
       self.log_transaction_handler(*args, **kwargs)
 
@@ -259,6 +263,24 @@ class DB(object):
   def minimize_cache(self):
     self.db.minimizeCache()
 
+  def localGC(self):
+    hruntime.dbconn.cacheGC()
+    hruntime.dbconn.cacheMinimize()
+
+  def poolGC(self):
+    self.db._a()
+    self.db.pool.availableGC()
+    self.db.historical_pool.availableGC()
+    self.db._r()
+
+  def globalGC(self):
+    self.pack()
+
+    self.db._a()
+    self.db.pool.availableGC()
+    self.db.historical_pool.availableGC()
+    self.db._r()
+
   def update_stats(self):
     data = self.db.getActivityMonitor().getActivityAnalysis(divisions = 1)[0]
     connections = {}
@@ -271,18 +293,19 @@ class DB(object):
         'Info': data['info'],
         'Before': data['before']
       }
+      i += 1
 
     for data in self.db.cacheDetailSize():
       caches[data['connection']] = {
+        'Connection': data['connection'],
         'Non-ghost size': data['ngsize'],
         'Size': data['size']
       }
 
-    with STATS:
-      STATS.set(self.stats_name, 'Load', data['loads'] if 'loads' in data else 0)
-      STATS.set(self.stats_name, 'Stores', data['stores'] if 'stores' in data else 0)
-      STATS.set(self.stats_name, 'Connections', connections)
-      STATS.set(self.stats_name, 'Caches', caches)
+    STATS.set(self.stats_name, 'Load', data['loads'] if 'loads' in data else 0)
+    STATS.set(self.stats_name, 'Stores', data['stores'] if 'stores' in data else 0)
+    STATS.set(self.stats_name, 'Connections', connections)
+    STATS.set(self.stats_name, 'Caches', caches)
 
 class DBObject(persistent.Persistent):
   def __init__(self, *args, **kwargs):

@@ -11,6 +11,8 @@ import time
 import traceback
 import threading
 
+import hlib.locks
+
 # pylint: disable-msg=F0401
 import hruntime  # @UnresolvedImport
 
@@ -52,12 +54,6 @@ def log_params():
     'session_id':		hruntime.session.sid if hruntime.session != None else None
   }
 
-def log_access():
-  params = log_params()
-
-  # pylint: disable-msg=W0142
-  log_msg(hruntime.app.config['log.access.format'].format(**params), hruntime.app.channels.access)
-
 def log_error(e):
   if e.dont_log == True:
     print >> sys.stderr, 'Skipped exception: \'%s\'' % unicode(e).encode('ascii', 'replace')
@@ -71,7 +67,7 @@ def log_error(e):
 def log_dbg(msg):
   log_msg('%s - %s' % (hruntime.tid, msg), hruntime.app.channels.error)
 
-_transaction_log_lock = threading.RLock()
+_transaction_log_lock = hlib.locks.RLock(name = 'Transaction log')
 def log_transaction(transaction, state, *args, **kwargs):
   if hruntime.user:
     kwargs['user'] = hruntime.user.name.encode('ascii', 'replace')

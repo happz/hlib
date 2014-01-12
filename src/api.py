@@ -7,11 +7,13 @@ import hashlib
 import json
 import threading
 import types
+import UserDict
 
 import hlib.error
 import hlib.handlers
 import hlib.http.session
 import hlib.input
+import hlib.locks
 import hlib.log
 
 # pylint: disable-msg=F0401
@@ -22,6 +24,26 @@ API_TOKEN_LENGTH = 32
 PASSWORD_FIELD_FILTERS = [
   lambda s: s.startswith('password')
 ]
+
+class APICookieStorage(UserDict.UserDict):
+  def __init__(self):
+    UserDict.UserDict.__init__(self)
+
+    self._lock = hlib.locks.RLock(name = 'API cookie storage')
+
+  def __getitem__(self, name):
+    with self._lock:
+      return UserDict.UserDict.__getitem__(self, name)
+
+  def __setitem__(self, name, value):
+    with self._lock:
+      UserDict.UserDict.__setitem__(self, name, value)
+
+  def __contains__(self, name):
+    with self._lock:
+      return UserDict.UserDict.__contains__(self, name)
+
+_COOKIES = APICookieStorage()
 
 class ApiIORegime(hlib.handlers.IORegime):
   @staticmethod
@@ -252,7 +274,7 @@ class ApiTokenCache(object):
     self.name			= name
     self.app			= app
 
-    self.lock = threading.Lock()
+    self.lock = hlib.locks.Lock(name = 'API token cache')
     self.token_to_user = {}
 
   def __getitem__(self, key):

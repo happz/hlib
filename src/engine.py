@@ -26,17 +26,19 @@ import hlib.database
 import hlib.events
 import hlib.handlers
 import hlib.http.cookies
+import hlib.locks
 import hlib.log
 import hlib.scheduler
 import hlib.server
 
+from collections import OrderedDict
 from hlib.stats import stats as STATS
 
 # pylint: disable-msg=F0401
 import hruntime  # @UnresolvedImport
 
 ENGINES = []
-ENGINES_LOCK = threading.RLock()
+ENGINES_LOCK = hlib.locks.RLock(name = 'Engines')
 
 class AppChannels(object):
   def __init__(self):
@@ -45,6 +47,7 @@ class AppChannels(object):
     self.access = []
     self.error = []
     self.transactions = []
+    self.events = []
 
     self.all_channels = []
 
@@ -137,6 +140,21 @@ class Application(object):
       h = h.index
 
     return h
+
+  def __log(self, msg, channels, flush = False):
+    for c in channels:
+      c.log_message(msg)
+
+    if flush:
+      c.flush()
+
+  def log_access(self):
+    params = hlib.log.log_params()
+
+    self.__log(self.config['log.access.format'].format(**params), self.channels.access)
+
+  def log_event(self, event):
+    self.__log('%s: %s' % (event.__class__.ename(), event.to_api()))
 
 class HeaderMap(UserDict.UserDict):
   """
@@ -277,8 +295,10 @@ class Request(object):
     if 'Host' in self.headers:
       self.base = self.headers['Host']
 
-    if self.parser.get_method().lower() not in ['get', 'post']:
-      raise hlib.http.UnknownMethod(self.parser.get_method())
+    self.method = self.parser.get_method().lower()
+
+    if self.method not in ['get', 'post', 'head']:
+      raise hlib.http.UnknownMethod(self.method)
 
     def __parse_param(s):
       l = s.strip().split('=')
@@ -464,32 +484,32 @@ class Response(object):
 
     lines.append('')
 
-    if self.output != None:
+    if self.output != None and req.method != 'head':
       lines.append(self.output)
 
     return '\r\n'.join(lines) + '\r\n'
 
-class MinimizeDBCacheTask(hlib.scheduler.Task):
-  def __init__(self, engine):
-    super(MinimizeDBCacheTask, self).__init__('minimize-db-cache', self.minimize_cache, min = [10, 30, 50])
+class DataBaseGCTask(hlib.scheduler.Task):
+  def __init__(self):
+    super(DataBaseGCTask, self).__init__('database-gc', self.database_gc, min = [5, 25, 45])
 
-    self.engine = engine
+  def database_gc(self, engine = None, app = None):
+    print 'Database gc task triggered'
 
-  def minimize_cache(self):
-    for app in self.engine.apps.values():
+    for app in engine.apps.values():
       if app.db != None and app.db.is_opened:
-        app.db.minimize_cache()
+        app.db.globalGC()
 
-class PackDBTask(hlib.scheduler.Task):
-  def __init__(self, engine):
-    super(PackDBTask, self).__init__('pack-db', self.pack_db, hour = [2, 10, 18])
+class SaveSessionsTask(hlib.scheduler.Task):
+  def __init__(self):
+    super(SaveSessionsTask, self).__init__('save-sessions', self.save_sessions, min = [10, 30, 50])
 
-    self.engine = engine
+  def save_sessions(self, engine = None, app = None):
+    print 'Save sessions task triggered'
 
-  def pack_db(self):
-    for app in self.engine.apps.values():
-      if app.db != None and app.db.is_opened:
-        app.db.pack()
+    for app in engine.app.values():
+      if app.sessions != None:
+        app.sessions.save_sessions()
 
 class Engine(object):
   """
@@ -511,8 +531,8 @@ class Engine(object):
     self.scheduler = hlib.scheduler.SchedulerThread(self)
     self.scheduler.start()
 
-    self.scheduler.add_task(MinimizeDBCacheTask(self))
-    self.scheduler.add_task(PackDBTask(self))
+    self.scheduler.add_task(DataBaseGCTask(), None)
+    self.scheduler.add_task(SaveSessionsTask(), None)
 
     i = 0
     for sc in server_configs:
@@ -527,31 +547,31 @@ class Engine(object):
     self.stats_name	= self.name
 
     with STATS:
-      STATS.set(self.stats_name, {
-        'Current time': lambda s: hruntime.time,
-        'Current requests': lambda s: len(s['Requests']),
+      STATS.set(self.stats_name, OrderedDict([
+        ('Current time', lambda s: hruntime.time),
+        ('Current requests', lambda s: len(s['Requests'])),
 
-        'Start time': time.time(),
-        'Uptime': lambda s: time.time() - s['Start time'],
+        ('Start time', time.time()),
+        ('Uptime', lambda s: time.time() - s['Start time']),
 
-        'Total bytes read': 0,
-        'Total bytes written': 0,
-        'Total requests': 0,
-        'Total time': 0,
+        ('Total bytes read', 0),
+        ('Total bytes written', 0),
+        ('Total requests', 0),
+        ('Total time', 0),
 
-        'Bytes read/second': lambda s: s['Total bytes read'] / s['Uptime'](s),
-        'Bytes written/second': lambda s: s['Total bytes written'] / s['Uptime'](s),
-        'Bytes read/request': lambda s: (s['Total requests'] and (s['Total bytes read'] / float(s['Total requests'])) or 0.0),
-        'Bytes written/request': lambda s: (s['Total requests'] and (s['Total bytes written'] / float(s['Total requests'])) or 0.0),
-        'Requests/second': lambda s: float(s['Total requests']) / s['Uptime'](s),
+        ('Bytes read/second', lambda s: s['Total bytes read'] / s['Uptime'](s)),
+        ('Bytes written/second', lambda s: s['Total bytes written'] / s['Uptime'](s)),
+        ('Bytes read/request', lambda s: (s['Total requests'] and (s['Total bytes read'] / float(s['Total requests'])) or 0.0)),
+        ('Bytes written/request', lambda s: (s['Total requests'] and (s['Total bytes written'] / float(s['Total requests'])) or 0.0)),
+        ('Requests/second', lambda s: float(s['Total requests']) / s['Uptime'](s)),
 
-        'Requests': {},
+        ('Requests', {}),
 
-        'Missing handlers': 0,
-        'RO requests': 0,
-        'Forced RO requests': 0,
-        'Failed commits': 0,
-      })
+        ('Missing handlers', 0),
+        ('RO requests', 0),
+        ('Forced RO requests', 0),
+        ('Failed commits', 0),
+      ]))
 
     self.console = hlib.console.Console('main console', self, sys.stdin, sys.stdout)
     self.console.register_command('db', hlib.database.Command_Database)
@@ -596,11 +616,10 @@ class Engine(object):
     hruntime.root = e.server.app.root
 
     thread_stats_setter = functools.partial(STATS.set, hruntime.service_server.pool.stats_name, 'Threads', hruntime.tid)
-    with STATS:
-      thread_stats_setter('Total bytes read', 0)
-      thread_stats_setter('Total bytes written', 0)
-      thread_stats_setter('Total requests', 0)
-      thread_stats_setter('Total time', 0)
+    thread_stats_setter('Total bytes read', 0)
+    thread_stats_setter('Total bytes written', 0)
+    thread_stats_setter('Total requests', 0)
+    thread_stats_setter('Total time', 0)
 
     dbconn, dbroot = hruntime.db.connect()
     hruntime.db.start_transaction()
@@ -618,6 +637,7 @@ class Engine(object):
     """
 
     hruntime.dbconn.close()
+    hruntime.db.poolGC()
 
   def on_request_connected(self, _):
     hruntime.clean()
@@ -627,18 +647,19 @@ class Engine(object):
 
     with STATS:
       STATS.inc(self.stats_name, 'Total requests')
-      STATS.set(self.stats_name, 'Requests', hruntime.tid, {
+
+    STATS.set(self.stats_name, 'Requests', hruntime.tid, {
         'Bytes read':                     0,
         'Bytes written':                  0,
         'Client':                         hlib.server.ips_to_str(hruntime.request.ips),
         'Start time':                     hruntime.time,
-        'Requested line':                 None
+        'Requested line':                 None,
+        'User':                           None
       })
 
   def on_request_accepted(self, _):
-    with STATS:
-      STATS.set(self.stats_name, 'Requests', hruntime.tid, 'Client', hlib.server.ips_to_str(hruntime.request.ips))
-      STATS.set(self.stats_name, 'Requests', hruntime.tid, hruntime.request.requested_line)
+    STATS.set(self.stats_name, 'Requests', hruntime.tid, 'Client', hlib.server.ips_to_str(hruntime.request.ips))
+    STATS.set(self.stats_name, 'Requests', hruntime.tid, 'Requested', hruntime.request.requested_line)
 
     hruntime.db.log_transaction('requested-set', requested = hruntime.request.requested)
 
@@ -693,6 +714,8 @@ class Engine(object):
       io_regime.check_session()
       hruntime.db.log_transaction('user-assigned')
 
+      STATS.set(self.stats_name, 'Requests', hruntime.tid, 'User', hruntime.user.name)
+
     if req.is_prohibited:
       hruntime.db.doom()
       raise hlib.http.Prohibited()
@@ -714,22 +737,10 @@ class Engine(object):
     Clean up after finished request. Log access into access log, commit (or rollback) database changes.
     """
 
-    hlib.log.log_access()
+    hruntime.app.log_access()
 
     req = hruntime.request
     t = time.time() - req.ctime
-
-    thread_stats_adder = functools.partial(STATS.add, hruntime.service_server.pool.stats_name, 'Threads', hruntime.tid)
-    engine_stats_adder = functools.partial(STATS.add, self.stats_name)
-
-    with STATS:
-      thread_stats_adder('Total bytes read', req.read_bytes)
-      thread_stats_adder('Total bytes written', req.written_bytes)
-      thread_stats_adder('Total time', t)
-
-      engine_stats_adder('Total bytes read', req.read_bytes)
-      engine_stats_adder('Total bytes written', req.written_bytes)
-      engine_stats_adder('Total time', t)
 
     def db_stats_incer(*args):
       with STATS:
@@ -763,7 +774,21 @@ class Engine(object):
     Clean up after finished request, and update statistics.
     """
 
+    req = hruntime.request
+    t = time.time() - req.ctime
+
+    thread_stats_adder = functools.partial(STATS.add, hruntime.service_server.pool.stats_name, 'Threads', hruntime.tid)
+    engine_stats_adder = functools.partial(STATS.add, self.stats_name)
+
+    thread_stats_adder('Total bytes read', req.read_bytes)
+    thread_stats_adder('Total bytes written', req.written_bytes)
+    thread_stats_adder('Total time', t)
+
     with STATS:
+      engine_stats_adder('Total bytes read', req.read_bytes)
+      engine_stats_adder('Total bytes written', req.written_bytes)
+      engine_stats_adder('Total time', t)
+
       STATS.remove(self.stats_name, 'Requests', hruntime.tid)
 
   def on_engine_halted(self, _):
@@ -772,6 +797,7 @@ class Engine(object):
 
     For now, just dump statistics and language coverage data.
     """
+
     pass
 
   def start(self):
@@ -813,7 +839,7 @@ class Engine(object):
     for server in self.servers:
       server.stop()
 
-    hlib.events.trigger('engine.Halted', None, post = False)
+    hlib.events.trigger('engine.Halted', None)
 
     for hook in self.hooks.values():
       hook.unregister()

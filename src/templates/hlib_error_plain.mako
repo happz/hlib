@@ -2,6 +2,7 @@
   import pprint
   import time
   import hlib
+  import hlib.server
   import hruntime
 %>
 
@@ -25,7 +26,7 @@ Exception occured at ${error.file}:${error.line}
   Stamp: ${time.strftime('%d/%m/%Y %H:%M:%S', hruntime.localtime)}
   Message: ${error.message}
   % if hruntime.user:
-  Request: ${hruntime.request.requested_line.encode('ascii', 'replace')} - ${hlib.ips_to_str(hruntime.request.ips)}
+  Request: ${hruntime.request.requested_line.encode('ascii', 'replace')} - ${hlib.server.ips_to_str(hruntime.request.ips)}
   User: ${hruntime.user.name}
   % else:
   Request: <none>
@@ -47,8 +48,6 @@ Exception occured at ${error.file}:${error.line}
     % for name, value in hruntime.request.params.iteritems():
       ${name}: ${unicode(value).encode('ascii', 'replace')}
     % endfor
-
-  Info:${pprint.pformat(error.info)}
 
   Call stack:${trace().strip()}
 

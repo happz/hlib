@@ -15,6 +15,7 @@ _HOOKS = {}
 
 class Event(hlib.datalayer.Event):
   dont_store = False
+  dont_log = True
 
   def __init__(self, hidden = False):
     hlib.datalayer.Event.__init__(self, hruntime.time, hidden)
@@ -95,8 +96,12 @@ def trigger(name, holder, post = True, **kwargs):
   # pylint: disable-msg=W0142
   e = _EVENTS[name]
   e = e(**kwargs)
+
   if e.dont_store != True:
     holder.events.push(e)
+
+  if e.dont_log != True and hasattr(e, 'app') and e.app != None:
+    e.app.log_event(e)
 
   if name not in _HOOKS:
     return

@@ -41,6 +41,24 @@ class RequestFinished(Event):
 class RequestClosed(Event):
   dont_store = True
 
+class ScheduledTaskTriggered(Event):
+  dont_store = True
+  dont_log = False
+
+  def __init__(self, engine = None, app = None, task = None, *args, **kwargs):
+    Event.__init__(self, *args, **kwargs)
+
+    self.engine = engine
+    self.app = app
+    self.task = task
+
+  def to_api(self):
+    d = Event.to_api(self)
+
+    d['task'] = self.task.name
+
+    return d
+
 Started.register()
 Halted.register()
 ThreadStarted.register()
@@ -50,3 +68,4 @@ RequestAccepted.register()
 RequestStarted.register()
 RequestFinished.register()
 RequestClosed.register()
+ScheduledTaskTriggered.register()

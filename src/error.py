@@ -63,7 +63,7 @@ def error_from_exception(e):
     for t in e.args:
       if type(t) not in types.StringTypes:
         t = unicode(t)
-      else:
+      elif isinstance(t, str):
         t = unicode(t, 'utf-8')
       _msg.append(t)
 

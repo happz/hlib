@@ -10,6 +10,7 @@ import string
 import threading
 import UserDict
 
+import hlib.locks
 import hlib.server
 from hlib.stats import stats as STATS
 
@@ -28,7 +29,7 @@ class Storage(UserDict.UserDict):
 
     self.app = app
 
-    self.lock = threading.RLock()
+    self.lock = hlib.locks.RLock(name = 'Session storage')
 
     self.sessions	= {}
 
@@ -73,6 +74,12 @@ class Storage(UserDict.UserDict):
 
       self.__online = None
 
+  def load_sessions(self):
+    pass
+
+  def save_sessions(self):
+    pass
+
   def load(self, sid):
     return self[sid]
 
@@ -94,6 +101,70 @@ class MemoryStorage(Storage):
 
   def __delitem__(self, name):
     with self.lock:
+      if name in self.sessions:
+        del self.sessions[name]
+
+class FileBackedMemoryStorage(MemoryStorage):
+  def __init__(self, storage_file, *args, **kwargs):
+    MemoryStorage.__init__(self, *args, **kwargs)
+
+    self.storage_file = storage_file
+    self.sessions = None
+
+  def __open_session_file(self, mode = 'r', repeated = False):
+    try:
+      return open(self.storage_file, mode)
+    except IOError, e:
+      if repeated:
+        raise e
+
+      if hasattr(e, 'args') and len(e.args) >= 1 and e.args[0] == 2:
+        with open(self.storage_file, 'w') as f:
+          f.write(cPickle.dumps({}))
+          f.close()
+        return self.__open_session_file(repeated = True)
+
+  def load_sessions(self):
+    # pylint: disable-msg=E1101
+    with self.__open_session_file() as f:
+      self.sessions = cPickle.loads(f.read())
+
+  def save_sessions(self):
+    # pylint: disable-msg=E1101
+    with self.__open_session_file(mode = 'w') as f:
+      f.write(cPickle.dumps(self.sessions))
+
+  def purge(self):
+    with self.lock:
+      Storage.purge(self)
+      self.save_sessions()
+
+  def __contains__(self, name):
+    with self.lock:
+      if self.sessions == None:
+        self.load_sessions()
+
+      return name in self.sessions
+
+  def __getitem__(self, name):
+    with self.lock:
+      if self.sessions == None:
+        self.load_sessions()
+
+      return self.sessions.get(name, None)
+
+  def __setitem__(self, name, value):
+    with self.lock:
+      if self.sessions == None:
+        self.load_sessions()
+
+      self.sessions[name] = value
+
+  def __delitem__(self, name):
+    with self.lock:
+      if self.sessions == None:
+        self.load_sessions()
+
       if name in self.sessions:
         del self.sessions[name]
 

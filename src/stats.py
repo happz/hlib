@@ -12,11 +12,13 @@ import threading
 import types
 import UserDict
 
+import hlib.locks
+
 class StatsDict(UserDict.UserDict):
   def __init__(self, *args, **kwargs):
     UserDict.UserDict.__init__(self, *args, **kwargs)
 
-    self.lock = threading.RLock()
+    self.lock = hlib.locks.RLock(name = 'Stats')
 
   def __get_last_dict(self, *keys):
     with self.lock:

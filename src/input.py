@@ -15,12 +15,6 @@ import hlib.handlers
 # pylint: disable-msg=F0401
 import hruntime  # @UnresolvedImport
 
-class SchemaValidator(Schema):
-  allow_extra_fields = False
-  filter_extra_fields = True
-  if_key_missing = None
-  ignore_key_missing = False
-
 def validator_factory(*validators):
   class PrivateValidator(Pipe):
     def __init__(self, *_args, **_kwargs):
@@ -38,6 +32,14 @@ CommonString = validator_factory(NotEmpty(), UnicodeString())
 Username = validator_factory(CommonString(), MinLength(2), MaxLength(30))
 Password = validator_factory(CommonString(), MinLength(2), MaxLength(256))
 Email    = validator_factory(CommonString(), Email())
+
+AjaxCookieValidator = validator_factory(CommonString(), MinLength(64), MaxLength(64))
+
+class SchemaValidator(Schema):
+  allow_extra_fields = False
+  filter_extra_fields = True
+  if_key_missing = None
+  ignore_key_missing = False
 
 def validate_by(schema = None):
   def _validate_by(fn):
