@@ -16,6 +16,7 @@ import hlib.http.session
 import hlib.log.channels.file
 import hlib.log.channels.stderr
 import hlib.server
+import hlib.ui.templates.Mako
 
 import hruntime  # @UnresolvedImport
 
@@ -122,6 +123,8 @@ class Runner(object):
 
     if on_app_config:
       on_app_config(app, config)
+
+    hlib.ui.templates.Mako.Template.init_app(app)
 
     server_config = hlib.server.Server.default_config()
     server_config['server'] = config.get('server', 'host')

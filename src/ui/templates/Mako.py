@@ -11,13 +11,10 @@ Mako templates
 import mako.exceptions
 import mako.lookup
 import mako.template
-import threading
+import types
 
 import hlib.locks
 import hlib.ui.templates
-
-load_lock = hlib.locks.RLock(name = 'Load lock')
-render_lock = hlib.locks.RLock(name = 'Render lock')
 
 class Template(hlib.ui.templates.Template):
   """
@@ -26,24 +23,32 @@ class Template(hlib.ui.templates.Template):
   Based on Mako template library U{http://www.makotemplates.org/}
   """
 
+  @staticmethod
+  def init_app(app):
+    app.mako_loader = mako.lookup.TemplateLookup(directories = app.config['templates.dirs'], module_directory = app.config['templates.tmp_dir'], filesystem_checks = False, input_encoding = 'utf-8')
+
+    orig_get_template = app.mako_loader.get_template
+    app.mako_loader.loader_lock = hlib.locks.RLock(name = 'Mako template loader lock')
+
+    def patched_get_template(self, uri):
+      with self.loader_lock:
+        return orig_get_template(uri)
+
+    patched_get_template = types.MethodType(patched_get_template, app.mako_loader, app.mako_loader.__class__)
+    app.mako_loader.get_template = patched_get_template
+
   def __init__(self, *args, **kwargs):
     super(Template, self).__init__(*args, **kwargs)
 
-    # pylint: disable-msg=E1101
-    self.loader = mako.lookup.TemplateLookup(directories = self.app.config['templates.dirs'], module_directory = self.app.config['templates.tmp_dir'], output_encoding = self.encoding, encoding_errors = self.encoding_errors, filesystem_checks = False, input_encoding = 'utf-8')
+  def load(self):
+    self.template = self.app.mako_loader.get_template(self.name)
+    return self
 
-  def load(self, text = None):
-    with load_lock:
-      if text == None:
-        self.template = self.loader.get_template(self.name)
-
-      else:
-        self.template = mako.template.Template(text = text, lookup = self.loader, input_encoding = self.encoding, output_encoding = self.encoding)
-
+  def create(self, text):
+    self.template = mako.template.Template(text = text, lookup = self.app.loader, input_encoding = self.encoding, output_encoding = self.encoding)
     return self
 
   def do_render(self):
-    #with render_lock:
     return self.template.render(**self.params)
 
   @staticmethod
