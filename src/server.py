@@ -9,6 +9,7 @@ import threading
 import SocketServer
 import sys
 import traceback
+import types
 
 import hlib.console
 import hlib.engine
@@ -62,7 +63,7 @@ class Command_Server(hlib.console.Command):
       if 'thread' not in args:
         self.console.err_required_arg('thread')
 
-      return self.__get_server_by_name(args).pool.kill_threads(threads = [args.thread])
+      return self.__get_server_by_name(args).pool.kill_threads(thread_names = [args.thread])
 
     if args.action == 'info':
       server = self.__get_server_by_name(args)
@@ -411,6 +412,7 @@ class ThreadPool(object):
   def get_request(self):
     while True:
       request = self.queue.get()
+      self.queue.task_done()
 
       if request.thread != None and request.thread != hruntime.tid:
         self.add_request(request)
@@ -430,8 +432,6 @@ class ThreadPool(object):
 
     with self.lock:
       self.free_count += 1
-
-    self.queue.task_done()
 
   def add_thread(self):
     """
@@ -482,8 +482,6 @@ class ThreadPool(object):
 
   def stop(self):
     self.kill_threads()
-
-    hlib.locks.save_stats('lock_debug.dat')
 
     sleep = True
     while sleep:
