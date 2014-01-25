@@ -85,10 +85,10 @@ class Console(object):
     self.register_command('sys', Command_Sys)
     self.register_command('?', Command_Help)
 
-  def register_command(self, name, cls):
+  def register_command(self, name, cls, *args, **kwargs):
     subparser = self.subparsers.add_parser(name)
     subparser.register('action', 'help', HelpAction)
-    self.commands[name] = cls(self, subparser)
+    self.commands[name] = cls(self, subparser, *args, **kwargs)
 
   def err_required_arg(self, name):
     raise CommandException('Option \'%s\' is required' % name)

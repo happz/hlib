@@ -111,7 +111,7 @@ class Runner(object):
 
     app = hlib.engine.Application('settlers', root, db, app_config)
     # app.sessions = hlib.http.session.FileStorage(config.get('session', 'storage_path'), app)
-    app.sessions = hlib.http.session.FileBackedMemoryStorage(config.get('session', 'storage_path'), app)
+    app.sessions = hlib.http.session.CachedMemoryStorage(config.get('session', 'storage_path'), app)
     app.config['sessions.time']   = config.get('session', 'time')
     app.config['sessions.cookie_name']  = config.get('session', 'cookie_name')
 

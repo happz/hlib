@@ -14,11 +14,19 @@ class ThreadEvent(Event):
     self.server = server
     self.thread = thread
 
-class Started(Event):
+class EngineEvent(Event):
   dont_store = True
 
-class Halted(Event):
-  dont_store = True
+  def __init__(self, engine = None, *args, **kwargs):
+    Event.__init__(self, *args, **kwargs)
+
+    self.engine = engine
+
+class Started(EngineEvent):
+  pass
+
+class Halted(EngineEvent):
+  pass
 
 class ThreadStarted(ThreadEvent):
   pass

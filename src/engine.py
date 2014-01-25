@@ -6,6 +6,7 @@ __license__ = 'http://www.php-suit.com/dpl'
 import functools
 import http_parser.util
 import ipaddr
+import os
 import os.path
 import StringIO
 import sys
@@ -39,6 +40,20 @@ import hruntime  # @UnresolvedImport
 
 ENGINES = []
 ENGINES_LOCK = hlib.locks.RLock(name = 'Engines')
+
+class Command_Engine(hlib.console.Command):
+  def __init__(self, console, parser, engine):
+    super(Command_Engine, self).__init__(console, parser)
+
+    self.engine = engine
+
+    self.parser.add_argument('--save-sessions', action = 'store_const', dest = 'action', const = 'save-sessions')
+
+  def handler(self, args):
+    if args.action == 'save-sessions':
+      for app in self.engine.apps.values():
+        if app.sessions != None:
+          app.sessions.save_sessions()
 
 class AppChannels(object):
   def __init__(self):
@@ -494,8 +509,6 @@ class DataBaseGCTask(hlib.scheduler.Task):
     super(DataBaseGCTask, self).__init__('database-gc', self.database_gc, min = [5, 25, 45])
 
   def database_gc(self, engine = None, app = None):
-    print 'Database gc task triggered'
-
     for app in engine.apps.values():
       if app.db != None and app.db.is_opened:
         app.db.globalGC()
@@ -507,7 +520,7 @@ class SaveSessionsTask(hlib.scheduler.Task):
   def save_sessions(self, engine = None, app = None):
     print 'Save sessions task triggered'
 
-    for app in engine.app.values():
+    for app in engine.apps.values():
       if app.sessions != None:
         app.sessions.save_sessions()
 
@@ -546,36 +559,36 @@ class Engine(object):
 
     self.stats_name	= self.name
 
-    with STATS:
-      STATS.set(self.stats_name, OrderedDict([
-        ('Current time', lambda s: hruntime.time),
-        ('Current requests', lambda s: len(s['Requests'])),
+    STATS.set(self.stats_name, OrderedDict([
+      ('Current time', lambda s: hruntime.time),
+      ('Current requests', lambda s: len(s['Requests'])),
 
-        ('Start time', time.time()),
-        ('Uptime', lambda s: time.time() - s['Start time']),
+      ('Start time', time.time()),
+      ('Uptime', lambda s: time.time() - s['Start time']),
 
-        ('Total bytes read', 0),
-        ('Total bytes written', 0),
-        ('Total requests', 0),
-        ('Total time', 0),
+      ('Total bytes read', 0),
+      ('Total bytes written', 0),
+      ('Total requests', 0),
+      ('Total time', 0),
 
-        ('Bytes read/second', lambda s: s['Total bytes read'] / s['Uptime'](s)),
-        ('Bytes written/second', lambda s: s['Total bytes written'] / s['Uptime'](s)),
-        ('Bytes read/request', lambda s: (s['Total requests'] and (s['Total bytes read'] / float(s['Total requests'])) or 0.0)),
-        ('Bytes written/request', lambda s: (s['Total requests'] and (s['Total bytes written'] / float(s['Total requests'])) or 0.0)),
-        ('Requests/second', lambda s: float(s['Total requests']) / s['Uptime'](s)),
+      ('Bytes read/second', lambda s: s['Total bytes read'] / s['Uptime'](s)),
+      ('Bytes written/second', lambda s: s['Total bytes written'] / s['Uptime'](s)),
+      ('Bytes read/request', lambda s: (s['Total requests'] and (s['Total bytes read'] / float(s['Total requests'])) or 0.0)),
+      ('Bytes written/request', lambda s: (s['Total requests'] and (s['Total bytes written'] / float(s['Total requests'])) or 0.0)),
+      ('Requests/second', lambda s: float(s['Total requests']) / s['Uptime'](s)),
 
-        ('Requests', {}),
+      ('Requests', {}),
 
-        ('Missing handlers', 0),
-        ('RO requests', 0),
-        ('Forced RO requests', 0),
-        ('Failed commits', 0),
-      ]))
+      ('Missing handlers', 0),
+      ('RO requests', 0),
+      ('Forced RO requests', 0),
+      ('Failed commits', 0),
+    ]))
 
     self.console = hlib.console.Console('main console', self, sys.stdin, sys.stdout)
     self.console.register_command('db', hlib.database.Command_Database)
     self.console.register_command('server', hlib.server.Command_Server)
+    self.console.register_command('engine', Command_Engine, self)
 
     with ENGINES_LOCK:
       ENGINES.append(self)
@@ -798,7 +811,7 @@ class Engine(object):
     For now, just dump statistics and language coverage data.
     """
 
-    pass
+    hlib.locks.save_stats('lock_debug-%s.dat' % os.getpid())
 
   def start(self):
     for s in self.servers:
@@ -821,7 +834,7 @@ class Engine(object):
 
     self.quit_event.clear()
 
-    hlib.events.trigger('engine.Started', None, post = False)
+    hlib.events.trigger('engine.Started', None, engine = self)
 
     try:
       while True:
@@ -839,7 +852,7 @@ class Engine(object):
     for server in self.servers:
       server.stop()
 
-    hlib.events.trigger('engine.Halted', None)
+    hlib.events.trigger('engine.Halted', None, engine = self)
 
     for hook in self.hooks.values():
       hook.unregister()
