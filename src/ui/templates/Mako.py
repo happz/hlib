@@ -25,7 +25,7 @@ class Template(hlib.ui.templates.Template):
 
   @staticmethod
   def init_app(app):
-    app.mako_loader = mako.lookup.TemplateLookup(directories = app.config['templates.dirs'], module_directory = app.config['templates.tmp_dir'], filesystem_checks = False, input_encoding = 'utf-8', output_encoding = 'utf-8')
+    app.mako_loader = mako.lookup.TemplateLookup(directories = app.config['templates.dirs'], module_directory = app.config['templates.tmp_dir'], filesystem_checks = True, input_encoding = 'utf-8', output_encoding = 'utf-8')
 
     orig_get_template = app.mako_loader.get_template
     app.mako_loader.loader_lock = hlib.locks.RLock(name = 'Mako template loader lock')
