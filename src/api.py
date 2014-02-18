@@ -52,27 +52,29 @@ class ApiIORegime(hlib.handlers.IORegime):
 
   @staticmethod
   def run_handler():
-    hruntime.response.headers['Content-Type'] = 'application/json'
+    res = hruntime.response
+
+    res.headers['Content-Type'] = 'application/json'
 
     try:
       hlib.input.validate()
 
-      r = hruntime.request.handler(**hruntime.request.params)
+      res.api_response = hruntime.request.handler(**hruntime.request.params)
 
-      if r == None:
-        r = Reply(200)
+      if res.api_response == None:
+        res.api_response = Reply(200)
 
-      if hasattr(r, 'dump'):
-        return r.dump()
+      if hasattr(res.api_response, 'dump'):
+        return res.api_response.dump()
 
-      if hasattr(r, 'get_serializer'):
-        return r.get_serializer().serialize(r)
+      if hasattr(res.api_response, 'get_serializer'):
+        return res.api_response.get_serializer().serialize(res.api_response)
 
-      if type(r) == types.DictType:
-        return Raw(r).dump()
+      if type(res.api_response) == types.DictType:
+        return Raw(res.api_response).dump()
 
-      if type(r) in types.StringTypes:
-        return r
+      if type(res.api_response) in types.StringTypes:
+        return res.api_response
 
       raise hlib.error.InvalidOutputError()
 
@@ -86,8 +88,10 @@ class ApiIORegime(hlib.handlers.IORegime):
       hlib.log.log_error(e)
 
       kwargs = e.args_for_reply()
+      res.api_response = Reply(e.reply_status, error = Error(e), **kwargs)
+
       # pylint: disable-msg=W0142
-      return Reply(e.reply_status, error = Error(e), **kwargs).dump()
+      return res.api_response.dump()
 
   @staticmethod
   def redirect(url):

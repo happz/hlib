@@ -362,15 +362,14 @@ class ThreadPool(object):
 
     self.stats_name	= 'Pool (%s)' % self.server.name
 
-    with STATS:
-      STATS.set(self.stats_name, OrderedDict([
-        ('Queue size', lambda s: self.queue.qsize()),
-        ('Current threads', lambda s: self.current_count),
-        ('Free threads', lambda s: self.free_count),
-        ('Total threads started', 0),
-        ('Total threads finished', 0),
-        ('Threads', {})
-      ]))
+    STATS.set(self.stats_name, OrderedDict([
+      ('Queue size', lambda s: self.queue.qsize()),
+      ('Current threads', lambda s: self.current_count),
+      ('Free threads', lambda s: self.free_count),
+      ('Total threads started', 0),
+      ('Total threads finished', 0),
+      ('Threads', {})
+    ]))
 
   # Event handlers
   def on_thread_start(self, _):
@@ -395,6 +394,7 @@ class ThreadPool(object):
 
     with STATS:
       STATS.inc(self.stats_name, 'Total threads finished')
+
     STATS.remove(self.stats_name, 'Threads', hruntime.tid)
 
   def on_request_connected(self, _):

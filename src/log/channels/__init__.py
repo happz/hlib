@@ -38,7 +38,8 @@ class StreamChannel(Channel):
     self.stream		= stream
 
   def do_log_message(self, msg):
-    print >> self.stream, msg.encode('ascii', 'replace')
+    msg = msg.decode('utf-8', 'replace').encode('ascii', 'replace')
+    self.stream.write(msg + '\n')
     self.stream.flush()
 
   def log_error(self, error):

@@ -54,7 +54,7 @@ class SchedulerThread(threading.Thread):
     self.lock = hlib.locks.RLock(name = 'Scheduler tasks lock')
     self.tasks = {}
 
-  def add_task(self, task, app):
+  def add_task(self, task, app = None):
     with self.lock:
       self.tasks[task.name] = (task, app)
 
@@ -64,6 +64,10 @@ class SchedulerThread(threading.Thread):
 
   def run(self):
     sleep_until = datetime.datetime.now() + datetime.timedelta(minutes = 1)
+
+    def __run_task(_app):
+      hlib.events.trigger('engine.ScheduledTaskTriggered', None, engine = self.engine, app = _app, task = task)
+      task.run(self.engine, _app)
 
     while True:
       while True:
@@ -79,7 +83,11 @@ class SchedulerThread(threading.Thread):
           if not task.matchtime(current_time):
             continue
 
-          hlib.events.trigger('engine.ScheduledTaskTriggered', None, engine = self.engine, app = app, task = task)
-          task.run(self.engine, app)
+          if app == None:
+            for app in self.engine.apps.values():
+              __run_task(app)
+
+          else:
+            __run_task(app)
 
       sleep_until = datetime.datetime.now() + datetime.timedelta(minutes = 1)

@@ -13,6 +13,8 @@ import BTrees
 import persistent
 import threading
 
+from collections import OrderedDict
+
 import hlib.console
 import hlib.error
 import hlib.locks
@@ -143,16 +145,15 @@ class DB(object):
     self.stats_name	= 'Database (%s)' % self.name
 
     # pylint: disable-msg=W0621
-    with STATS:
-      STATS.set(self.stats_name, {
-        'Loads': 0,
-        'Stores': 0,
-        'Commits': 0,
-        'Rollbacks': 0,
-        'Failed commits': 0,
-        'Connections': {},
-        'Caches': {}
-      })
+    STATS.set(self.stats_name, OrderedDict([
+      ('Loads', 0),
+      ('Stores', 0),
+      ('Commits', 0),
+      ('Rollbacks', 0),
+      ('Failed commits', 0),
+      ('Connections', {}),
+      ('Caches', {})
+    ]))
 
     import events
     events.Hook('engine.ThreadFinished', self.on_thread_finished)

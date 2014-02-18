@@ -46,6 +46,8 @@ def start_session(user = None, tainted = False):
   elif hasattr(hruntime.session, 'tainted'):
     hruntime.session.tainted = False
 
+  hruntime.app.sessions.invalidate_onlines()
+
   refresh_session()
 
 def check_session(redirect_to_login = True):
@@ -57,14 +59,14 @@ def check_session(redirect_to_login = True):
   """
 
   if not hruntime.request.is_authenticated:
+    hruntime.app.sessions.invalidate_onlines()
+
     if redirect_to_login == True:
       raise hlib.http.Redirect('/login/')
 
     return
 
   refresh_session()
-
-  hruntime.app.sessions.purge()
 
 def logout(trigger_event = True):
   """
@@ -76,5 +78,7 @@ def logout(trigger_event = True):
 
   hruntime.session.destroy()
   hruntime.session = None
+
+  hruntime.app.sessions.invalidate_onlines()
 
   raise hlib.http.Redirect('/login/')

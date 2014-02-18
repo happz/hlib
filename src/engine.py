@@ -169,7 +169,7 @@ class Application(object):
     self.__log(self.config['log.access.format'].format(**params), self.channels.access)
 
   def log_event(self, event):
-    self.__log('%s: %s' % (event.__class__.ename(), event.to_api()))
+    self.__log('%s: %s' % (event.__class__.ename(), event.to_api()), self.channels.events)
 
 class HeaderMap(UserDict.UserDict):
   """
@@ -419,6 +419,8 @@ class Response(object):
     self.location		= None
     self.time			= hruntime.time
 
+    self.api_response = None
+
     self._output                = None
     self.output_length		= None
 
@@ -506,23 +508,27 @@ class Response(object):
 
 class DataBaseGCTask(hlib.scheduler.Task):
   def __init__(self):
-    super(DataBaseGCTask, self).__init__('database-gc', self.database_gc, min = [5, 25, 45])
+    super(DataBaseGCTask, self).__init__('database-gc', self.database_gc, min = range(5, 60, 20))
 
   def database_gc(self, engine = None, app = None):
-    for app in engine.apps.values():
-      if app.db != None and app.db.is_opened:
-        app.db.globalGC()
+    if app.db != None and app.db.is_opened:
+      app.db.globalGC()
 
 class SaveSessionsTask(hlib.scheduler.Task):
   def __init__(self):
-    super(SaveSessionsTask, self).__init__('save-sessions', self.save_sessions, min = [10, 30, 50])
+    super(SaveSessionsTask, self).__init__('save-sessions', self.save_sessions, min = range(10, 60, 20))
 
   def save_sessions(self, engine = None, app = None):
-    print 'Save sessions task triggered'
+    if app.sessions != None:
+      app.sessions.save_sessions()
 
-    for app in engine.apps.values():
-      if app.sessions != None:
-        app.sessions.save_sessions()
+class PurgeSessionsTask(hlib.scheduler.Task):
+  def __init__(self):
+    super(PurgeSessionsTask, self).__init__('purge-sessions', self.purge_sessions, min = range(0, 60, 5))
+
+  def purge_sessions(self, engine = None, app = None):
+    if app.sessions != None:
+      app.sessions.purge()
 
 class Engine(object):
   """
@@ -545,6 +551,7 @@ class Engine(object):
     self.scheduler.start()
 
     self.scheduler.add_task(DataBaseGCTask(), None)
+    self.scheduler.add_task(PurgeSessionsTask(), None)
     self.scheduler.add_task(SaveSessionsTask(), None)
 
     i = 0
@@ -661,14 +668,14 @@ class Engine(object):
     with STATS:
       STATS.inc(self.stats_name, 'Total requests')
 
-    STATS.set(self.stats_name, 'Requests', hruntime.tid, {
-        'Bytes read':                     0,
-        'Bytes written':                  0,
-        'Client':                         hlib.server.ips_to_str(hruntime.request.ips),
-        'Start time':                     hruntime.time,
-        'Requested line':                 None,
-        'User':                           None
-      })
+    STATS.set(self.stats_name, 'Requests', hruntime.tid, OrderedDict([
+      ('Bytes read',     0),
+      ('Bytes written',  0),
+      ('Client',         hlib.server.ips_to_str(hruntime.request.ips)),
+      ('Start time',     hruntime.time),
+      ('Requested line', None),
+      ('User',           None)
+    ]))
 
   def on_request_accepted(self, _):
     STATS.set(self.stats_name, 'Requests', hruntime.tid, 'Client', hlib.server.ips_to_str(hruntime.request.ips))

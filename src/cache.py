@@ -7,6 +7,8 @@ import functools
 import sys
 import threading
 
+from collections import OrderedDict
+
 import hlib.locks
 
 from hlib.stats import stats as STATS
@@ -23,16 +25,15 @@ class Cache(object):
 
     self.stats_name = 'Cache (%s - %s)' % (self.app.name, self.name)
 
-    with STATS:
-      STATS.set(self.stats_name, {
-        'Total objects': lambda s: sum([len(chain) for chain in self.objects.values()]),
-        'Total chains': lambda s: len(self.objects),
-        'Total size': lambda s: sum([sum([sys.getsizeof(v) for v in chain.values()]) for chain in self.objects.values()]),
-        'Hits': 0,
-        'Misses': 0,
-        'Inserts': 0,
-        'Chains': lambda s: self.to_stats()
-      })
+    STATS.set(self.stats_name, OrderedDict([
+      ('Total objects', lambda s: sum([len(chain) for chain in self.objects.values()])),
+      ('Total chains', lambda s: len(self.objects)),
+      ('Total size', lambda s: sum([sum([sys.getsizeof(v) for v in chain.values()]) for chain in self.objects.values()])),
+      ('Hits', 0),
+      ('Misses', 0),
+      ('Inserts', 0),
+      ('Chains', lambda s: self.to_stats())
+    ]))
 
   def stats_inc(self, key):
     with STATS:

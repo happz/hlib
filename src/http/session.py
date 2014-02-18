@@ -8,7 +8,9 @@ import hashlib
 import random
 import string
 import threading
-import UserDict
+
+from UserDict import UserDict
+from collections import OrderedDict
 
 import hlib.locks
 import hlib.server
@@ -23,9 +25,9 @@ def gen_rand_string(l):
   chars = string.letters + string.digits
   return reduce(lambda s, i: s + random.choice(chars), range(l), '')
 
-class Storage(UserDict.UserDict):
+class Storage(UserDict):
   def __init__(self, app, *args, **kwargs):
-    UserDict.UserDict.__init__(self, *args, **kwargs)
+    UserDict.__init__(self, *args, **kwargs)
 
     self.app = app
 
@@ -38,26 +40,38 @@ class Storage(UserDict.UserDict):
 
     self.stats_name = 'Sessions (%s)' % self.app.name
 
-    STATS.set(self.stats_name, {
-      'Active': lambda s: ', '.join(self.online_users)
-    })
+    STATS.set(self.stats_name, OrderedDict([
+      ('Active', lambda s: ', '.join(self.online_users))
+    ]))
 
   @property
   def online_users(self):
+    # Some actions can be done without holding lock
+
+    __online_ref = self.__online
+    if __online_ref != None:
+      return __online_ref
+
+    if not self.sessions:
+      return []
+
     with self.lock:
-      if self.sessions == None:
-        return []
+      if self.__online != None:
+        return self.__online
 
-      if hruntime.time - self.__online_ctime > 60 or self.__online == None:
-        self.__online = []
+      self.__online = []
 
-        for session in self.sessions.values():
-          if session.age < 300 and hasattr(session, 'authenticated') and hasattr(session, 'name') and session.name:
-            self.__online.append(session.name)
+      for session in self.sessions.values():
+        if session.age < 300 and hasattr(session, 'authenticated') and hasattr(session, 'name') and session.name:
+          self.__online.append(session.name)
 
-        self.__online_ctime = hruntime.time
+      self.__online_ctime = hruntime.time
 
       return list(self.__online)
+
+  def invalidate_onlines(self):
+    with self.lock:
+      self.__online = None
 
   def purge(self):
     with self.lock:

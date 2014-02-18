@@ -13,6 +13,19 @@ import syslog
 import traceback
 import types
 
+def get_caller(back = 0):
+  stack = traceback.extract_stack()
+
+  i = -3 - back
+  if abs(i) > len(stack):
+    i = -len(stack)
+
+  return stack[i]
+
+def fmt_caller(back = 0):
+  caller = get_caller(back = back + 1)
+  return 'Called by "%s" on %s:%i ("%s")' % (caller[2], caller[0], caller[1], caller[3])
+
 class BaseError(Exception):
   def __init__(self, msg = None, params = None, exception = None, exc_info = None, http_status = 500, reply_status = 500, dont_log = False, **kwargs):
     super(BaseError, self).__init__()
@@ -118,7 +131,7 @@ class UnimplementedError(BaseError):
     @param obj:			Unimplemented function wrapper that called this function.
     """
 
-    super(UnimplementedError, self).__init__('Unimplemented abstract method: %(method)s', params = {'method': UnimplementedError.function_name(obj, 2)})
+    super(UnimplementedError, self).__init__('Unimplemented abstract method: %(method)s', params = {'method': UnimplementedError.function_name(obj, 1)})
 
 class UnknownError(BaseError):
   pass

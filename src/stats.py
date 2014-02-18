@@ -10,13 +10,17 @@ __license__ = 'http://www.php-suit.com/dpl'
 import sys
 import threading
 import types
-import UserDict
 
+from collections import OrderedDict
+
+import hlib.error
 import hlib.locks
 
-class StatsDict(UserDict.UserDict):
+import hruntime
+
+class StatsDict(OrderedDict):
   def __init__(self, *args, **kwargs):
-    UserDict.UserDict.__init__(self, *args, **kwargs)
+    OrderedDict.__init__(self, *args, **kwargs)
 
     self.lock = hlib.locks.RLock(name = 'Stats')
 
@@ -60,8 +64,9 @@ class StatsDict(UserDict.UserDict):
 
   def snapshot(self, d_in = None):
     if d_in == None:
-      d_in = self.data
-    d_out = {}
+      d_in = self
+
+    d_out = OrderedDict()
 
     for k, v in list(d_in.items()):
       if k == '__fmt__':
@@ -98,7 +103,7 @@ stats_fmt = {
 }
 
 def iter_collection(collection):
-  if type(collection) == types.DictType:
+  if isinstance(collection, dict):
     keys = collection.keys()
   else:
     keys = range(0, len(collection))

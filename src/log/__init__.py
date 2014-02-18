@@ -40,6 +40,16 @@ def log_msg(msg, channels, flush = False):
 def log_params():
   import hlib.server
 
+  def __response_api_status():
+    res = hruntime.response
+
+    if not res.api_response:
+      return '-'
+    if not hasattr(res.api_response, 'status'):
+      return '/'
+
+    return res.api_response.status
+
   return {
     'tid':			hruntime.tid,
     'stamp':			hruntime.localtime,
@@ -51,6 +61,7 @@ def log_params():
     'request_agent':		hruntime.request.headers.get('User-Agent', '-'),
     'response_status':		hruntime.response.status,
     'response_length':		hruntime.response.output_length != None and hruntime.response.output_length or 0,
+    'response_api_status': __response_api_status(),
     'session_id':		hruntime.session.sid if hruntime.session != None else None
   }
 
