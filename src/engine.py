@@ -132,10 +132,21 @@ class Application(object):
       'log.access.format': '{date} {time} {request_line} {response_status} {response_length} {request_ip} {request_user}',
 
       'sessions.time': 2 * 86400,
-      'sessions.cookie_name': 'hlib_sid'
+      'sessions.cookie_name': 'hlib_sid',
+
+      'static.enabled': False,
+      'static.root': '/tmp'
     }
 
   def get_handler(self, requested):
+    def __static_fallback():
+      if 'static.enabled' in self.config and self.config['static.enabled']:
+        import hlib.handlers.static
+
+        return hlib.handlers.static.StaticHandler().generate
+
+      raise hlib.http.NotFound()
+
     h = self.root
 
     for token in requested.split('?')[0].split('/')[1:]:
@@ -146,11 +157,11 @@ class Application(object):
         h = getattr(h, token)
         continue
 
-      raise hlib.http.NotFound()
+      return __static_fallback()
 
     if isinstance(h, hlib.handlers.GenericHandler):
       if not hasattr(h, 'index'):
-        raise hlib.http.NotFound()
+        return __static_fallback()
 
       h = h.index
 
@@ -430,6 +441,8 @@ class Response(object):
     self.output			= None
     self.raw_output		= None
 
+    self.source_file = None
+
   def __getattr__(self, name):
     if name == 'output':
       return self._output
@@ -480,6 +493,10 @@ class Response(object):
     for name, cookie in self.cookies.iteritems():
       self.headers['Set-Cookie'] = '%s=%s; Max-Age=%s; Path=%s' % (cookie.name, urllib.quote(cookie.value), cookie.max_age, cookie.path)
 
+    if self.source_file:
+      self.output = self.source_file.read()
+      self.source_file.close()
+
     if self.output:
       if hasattr(req.server.config, 'compress') and req.server.config.compress == True:
         compressed = hlib.compress.compress(self.output)
@@ -504,7 +521,7 @@ class Response(object):
     if self.output != None and req.method != 'head':
       lines.append(self.output)
 
-    return '\r\n'.join(lines) + '\r\n'
+    return '\r\n'.join(lines)
 
 class DataBaseGCTask(hlib.scheduler.Task):
   def __init__(self):

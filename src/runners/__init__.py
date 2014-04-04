@@ -36,7 +36,7 @@ class ConfigFile(ConfigParser.ConfigParser):
       raise ConfigParser.NoSectionError(section)
 
     if option not in self.default[section]:
-      raise ConfigParser.NoOptionError(section, option)
+      raise ConfigParser.NoOptionError(option, section)
 
     return self.default[section][option]
 
@@ -120,6 +120,10 @@ class Runner(object):
     app.channels.add('error', stderr, error)
     app.channels.add('transactions', transactions)
     app.channels.add('events', stderr, events)
+
+    if config.has_section('static'):
+      app.config['static.enabled'] = True
+      app.config['static.root'] = config.get('static', 'root')
 
     if on_app_config:
       on_app_config(app, config)

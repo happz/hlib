@@ -3,6 +3,8 @@ __copyright__ = 'Copyright 2010 - 2013, Milos Prchlik'
 __contact__ = 'happz@happz.cz'
 __license__ = 'http://www.php-suit.com/dpl'
 
+import time
+
 import hlib.error
 
 # pylint: disable-msg=F0401
@@ -45,6 +47,15 @@ HTTP_CODES = {
   # 5xx - Server error
   500:		'Internal Server Error'
 }
+
+def stamp_to_string(stamp):
+  weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  monthname = [None, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+  stamp = stamp or time.time()
+
+  year, month, day, hh, mm, ss, wd, y, z = time.gmtime(stamp)
+  return "%s, %02d %3s %4d %02d:%02d:%02d GMT" % (weekdayname[wd], day, monthname[month], year, hh, mm, ss)
 
 class HTTPError(hlib.error.BaseError):
   def __init__(self, *args, **kwargs):
