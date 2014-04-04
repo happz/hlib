@@ -7,7 +7,6 @@ import cPickle
 import hashlib
 import random
 import string
-import threading
 
 from UserDict import UserDict
 from collections import OrderedDict
