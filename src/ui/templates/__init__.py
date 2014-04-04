@@ -54,7 +54,7 @@ class Template(object):
     """
 
     # pylint: disable-msg=R0201
-    raise error.UnimplementedError(obj = Template)
+    raise hlib.error.UnimplementedError(obj = Template)
 
   def render(self, params = None):
     """

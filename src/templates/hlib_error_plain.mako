@@ -25,11 +25,10 @@
 Exception occured at ${error.file}:${error.line}
   Stamp: ${time.strftime('%d/%m/%Y %H:%M:%S', hruntime.localtime)}
   Message: ${error.message}
-  % if hruntime.user:
   Request: ${hruntime.request.requested_line.encode('ascii', 'replace')} - ${hlib.server.ips_to_str(hruntime.request.ips)}
+  % if hruntime.user:
   User: ${hruntime.user.name}
   % else:
-  Request: <none>
   User: <unknown>
   % endif
   TID: ${hruntime.tid}
