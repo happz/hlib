@@ -26,6 +26,7 @@ import hlib.console
 import hlib.database
 import hlib.events
 import hlib.handlers
+import hlib.http
 import hlib.http.cookies
 import hlib.locks
 import hlib.log
@@ -140,11 +141,12 @@ class Application(object):
 
   def get_handler(self, requested):
     def __static_fallback():
-      if 'static.enabled' in self.config and self.config['static.enabled']:
+      if self.config.get('static.enabled', False):
         import hlib.handlers.static
 
         return hlib.handlers.static.StaticHandler().generate
 
+      import hlib.http
       raise hlib.http.NotFound()
 
     h = self.root
@@ -508,6 +510,8 @@ class Response(object):
         self.headers['Content-Encoding'] = 'gzip'
 
       self.headers['Content-Length'] = self.output_length
+    else:
+      self.headers['Content-Length'] = 0
 
     lines = [
       'HTTP/1.1 %i %s' % (self.status, hlib.http.HTTP_CODES[self.status])
@@ -521,7 +525,7 @@ class Response(object):
     if self.output != None and req.method != 'head':
       lines.append(self.output)
 
-    return '\r\n'.join(lines)
+    return '\r\n'.join(lines) + '\r\n'
 
 class DataBaseGCTask(hlib.scheduler.Task):
   def __init__(self):
