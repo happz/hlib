@@ -40,10 +40,10 @@ class Cache(object):
       STATS.inc(self.stats_name, key)
 
   def __chain_init(self, user):
-    if user not in self.objects:
-      self.objects[user] = {}
+    if user.name not in self.objects:
+      self.objects[user.name] = {}
 
-    return self.objects[user]
+    return self.objects[user.name]
 
   def __check_caching_status(self, key):
     C = self.app.config
@@ -130,8 +130,8 @@ class Cache(object):
     ret = {}
 
     with self.lock:
-      for user, chain in self.objects.items():
+      for username, chain in self.objects.items():
         for key, value in chain.items():
-          ret[user.name + ' - ' + key] = {'Type': str(type(value)).replace('<', '').replace('>', ''), 'Size': sys.getsizeof(value)}
+          ret[username + ' - ' + key] = {'Type': str(type(value)).replace('<', '').replace('>', ''), 'Size': sys.getsizeof(value)}
 
     return ret
