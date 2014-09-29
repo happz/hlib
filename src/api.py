@@ -67,9 +67,6 @@ class ApiIORegime(hlib.handlers.IORegime):
       if hasattr(res.api_response, 'dump'):
         return res.api_response.dump()
 
-      if hasattr(res.api_response, 'get_serializer'):
-        return res.api_response.get_serializer().serialize(res.api_response)
-
       if type(res.api_response) == types.DictType:
         return Raw(res.api_response).dump()
 
