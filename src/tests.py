@@ -10,14 +10,19 @@ import string
 import sys
 import types
 import json
+import time
 
 __all__ = [
            'TestCase',
-           'T', 'F', 'EQ', 'NEQ', 'EQ3', 'NONE', 'ANY', 'LEQ', 'JEQ', 'IN', 'NIN', 'EX', 'R', 'SKIP', 'Z'
+           'T', 'F', 'EQ', 'NEQ', 'EQ3', 'NONE', 'ANY', 'LEQ', 'JEQ', 'IN', 'NIN', 'EX', 'R', 'SKIP', 'Z', 'PAUSE',
           ]
 
-def T(a):
-  assert a == True
+def PAUSE(sec):
+  time.sleep(sec)
+
+def T(a, msg = None):
+  msg = msg or ''
+  assert a == True, msg
 
 def F(a):
   assert a == False
@@ -89,11 +94,6 @@ def EX(exc_cls, fn, *args, **kwargs):
 from nose.tools import raises as R  # @UnusedImport
 from nose.tools import nottest as SKIP  # @UnusedImport
 
-CONFIG_FILE = 'tests.conf'
-
-CONFIG = ConfigParser.ConfigParser()
-CONFIG.read(CONFIG_FILE)
-
 def rand_string(length = 10):
   return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(length))
 
@@ -124,13 +124,66 @@ def cmp_json_dicts(reply, expect):
     print >> sys.stderr, 'JSON reply: \'%s\'' % reply
     raise e
 
+def patch_event_hooks(ename = None, callback = None):
+  def __fake_call_nop(self, event):
+    pass
+
+  for event_name, hooks in hlib.events._HOOKS.items():
+    if ename != None and ename != event_name:
+      continue
+
+    for hook in hooks:
+      if callback:
+        patched_call = types.MethodType(callback, hook, hook.__class__)
+      else:
+        patched_call = types.MethodType(__fake_call_nop, hook, hook.__class__)
+
+      hook.__original_call = hook.__call__
+      hook.__call__ = patched_call
+
+def unpatch_event_hooks(ename = None):
+  for event_name, hooks in hlib.events._HOOKS.items():
+    if ename != None and ename != event_name:
+      continue
+
+    for hook in hooks:
+      hook.__call__ = hook.__original_call
+
+class DatabaseCache(object):
+  _dbs = {}
+
+  def __init__(self, config):
+    super(DatabaseCache, self).__init__()
+
+    self.config = config
+
+  def db(self, name, addr):
+    import hlib.database
+    import os.path
+
+    key = '%s-%s' % (name, addr)
+    dbs = self.__class__._dbs
+
+    if key not in dbs:
+      addr = hlib.database.DBAddress(addr)
+      addr.path = os.path.join(self.config.get('paths', 'tmpdir'), 'databases', addr.path)
+      dbs[key] = hlib.database.DB(name, addr)
+      dbs[key].set_transaction_logging(enabled = False)
+
+    return dbs[key]
+
 class TestCase(unittest.TestCase):
   @classmethod
   def setup_class(cls):
-    global CONFIG
-
-    cls.config = CONFIG
+    pass
 
   @classmethod
   def teardown_class(cls):
     pass
+
+  def __getattribute__(self, name):
+    if name == 'config':
+      from testconfig import config
+      return config
+
+    return super(TestCase, self).__getattribute__(name)

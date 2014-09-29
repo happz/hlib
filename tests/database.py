@@ -26,7 +26,10 @@ class DBTests(hlib.tests.TestCase):
   @classmethod
   def setup_class(cls):
     super(DBTests, cls).setup_class()
+
     os.mkdir(os.path.join(cls.config.get('paths', 'tmpdir'), 'databases'))
+
+    self.db_cache = hlib.tests.DatabaseCache(cls.config)
 
   @classmethod
   def teardown_class(cls):
@@ -34,16 +37,7 @@ class DBTests(hlib.tests.TestCase):
     shutil.rmtree(os.path.join(cls.config.get('paths', 'tmpdir'), 'databases'))
 
   def db(self, name, addr):
-    key = '%s-%s' % (name, addr)
-    dbs = self.__class__._dbs
-
-    if key not in dbs:
-      addr = hlib.database.DBAddress(addr)
-      addr.path = os.path.join(self.config.get('paths', 'tmpdir'), 'databases', addr.path)
-      dbs[key] = hlib.database.DB(name, addr)
-      dbs[key].set_transaction_logging(enabled = False)
-
-    return dbs[key]
+    return self.db_cache.db(name, addr)
 
   def test_imports(self):
     from hlib.database import TreeMapping  # @UnusedImport
