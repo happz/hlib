@@ -237,3 +237,8 @@ class Session(object):
 
   def destroy(self):
     del self.storage[self.sid]
+
+STORAGES = {
+  'memory': MemoryStorage,
+  'cached_memory': CachedMemoryStorage
+}

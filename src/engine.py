@@ -57,6 +57,8 @@ class Command_Engine(hlib.console.Command):
           app.sessions.save_sessions()
 
 class AppChannels(object):
+  CHANNEL_TYPES = ['access', 'error', 'transactions', 'events']
+
   def __init__(self):
     super(AppChannels, self).__init__()
 
@@ -66,6 +68,8 @@ class AppChannels(object):
     self.events = []
 
     self.all_channels = []
+
+    self.state = dict(map(lambda x: (x, True), AppChannels.CHANNEL_TYPES))
 
   def add(self, output, *channels):
     for c in channels:
@@ -78,12 +82,23 @@ class AppChannels(object):
   def close(self):
     map(lambda c: c.close(), self.all_channels)
 
+  def enabled(self, channel_type, *args):
+    if len(args) == 1:
+      self.state[channel_type] = bool(args[0])
+
+    return self.state[channel_type] == True
+
+  access_enabled = property(lambda self: self.enabled('access'), lambda self, state: self.enabled('access', state))
+  error_enabled = property(lambda self: self.enabled('error'), lambda self, state: self.enabled('error', state))
+  transactions_enabled = property(lambda self: self.enabled('transaction'), lambda self, state: self.enabled('transactions', state))
+  events_enabled = property(lambda self: self.enabled('events'), lambda self, state: self.enabled('events', state))
+
 class Application(object):
   """
   This class represents one of our applications. Binds together database access, logging channels and tree of handlers.
   """
 
-  def __init__(self, name, root, db, config):
+  def __init__(self, name, root, db, config, channels = None, cache = None, config_file = None):
     """
     @type name:			C{string}
     @param name:		Name of application. Any string at all.
@@ -95,6 +110,9 @@ class Application(object):
 
     super(Application, self).__init__()
 
+    import hlib.api
+    import hlib.cache
+
     self.engines = []
 
     self.name = name
@@ -102,14 +120,18 @@ class Application(object):
     self.db = db
     self.config = config
 
-    import hlib.cache
-    self.cache = hlib.cache.Cache('Global', self)
-    self.channels	= AppChannels()
+    self.config_file = config_file
 
-    self.sessions	= None
-
-    import hlib.api
+    self.cache = cache or hlib.cache.Cache('Global', self)
+    self.channels = channels or AppChannels()
+    self.sessions = None
     self.api_tokens = hlib.api.ApiTokenCache(self.name, self)
+
+    for channel_type in self.channels.CHANNEL_TYPES:
+      key = 'log.' + channel_type + '.enabled'
+      self.channels.enabled(channel_type, key in self.config and self.config[key])
+
+    hlib.events.trigger('app.Started', None, app = self)
 
   def __repr__(self):
     return '<engine.Application(\'%s\', %s, %s, <config>)>' % (self.name, self.root, self.db)
@@ -130,7 +152,18 @@ class Application(object):
 
       'mail.server': 'localhost',
 
+      'log.access.enabled': True,
       'log.access.format': '{date} {time} {request_line} {response_status} {response_length} {request_ip} {request_user}',
+      'log.access.channels': '<default log>',
+
+      'log.error.enabled': True,
+      'log.error.channels': '<default log>, <stderr>',
+
+      'log.transactions.enabled': True,
+      'log.transactions.channels': '<default log>',
+
+      'log.events.enabled': True,
+      'log.events.channels': '<default log>, <stderr>',
 
       'sessions.time': 2 * 86400,
       'sessions.cookie_name': 'hlib_sid',
@@ -177,11 +210,17 @@ class Application(object):
       c.flush()
 
   def log_access(self):
+    if not self.channels.access_enabled:
+      return
+
     params = hlib.log.log_params()
 
     self.__log(self.config['log.access.format'].format(**params), self.channels.access)
 
   def log_event(self, event):
+    if not self.channels.error_enabled:
+      return
+
     self.__log('%s: %s' % (event.__class__.ename(), event.to_api()), self.channels.events)
 
 class HeaderMap(UserDict.UserDict):
@@ -888,4 +927,5 @@ class Engine(object):
     self.quit_event.set()
 
 import hlib.events.engine  # @UnusedImport
+import hlib.events.app     # @UnusedImport
 import hlib.events.system  # @UnusedImport

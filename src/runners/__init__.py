@@ -14,6 +14,7 @@ import hlib.engine
 import hlib.events
 import hlib.http.session
 import hlib.log.channels.file
+import hlib.log.channels.stdout
 import hlib.log.channels.stderr
 import hlib.server
 import hlib.ui.templates.Mako
@@ -53,8 +54,6 @@ class Runner(object):
 
     hlib.events.trigger('system.SystemReload', None)
 
-    print 'Restarting application'
-
     os.execv(sys.argv[0], sys.argv[:])
 
   def __init__(self, config_file, root, config_defaults = None, on_app_config = None):
@@ -63,25 +62,9 @@ class Runner(object):
     config = ConfigFile(default = config_defaults)
     config.read(config_file)
 
-    # Setup channels - error, access and transactions
-    stderr = hlib.log.channels.stderr.Channel()
-
-    def __get_channel(name):
-      if config.get('log', name):
-        p = config.get('log', name)
-      else:
-        p = os.path.join(config.get('server', 'path'), 'logs', name + '.log')
-
-      return hlib.log.channels.file.Channel(p)
-
-    access = __get_channel('access')
-    error = __get_channel('error')
-    transactions = __get_channel('transactions')
-    events = __get_channel('events')
-
     # Setup database
     db_address = hlib.database.DBAddress(config.get('database', 'address'))
-    db = hlib.database.DB('main db', db_address, cache_size = int(config.get('database', 'cache_size')), pool_size = int(config.get('server', 'queue.workers')) + 1)
+    db = hlib.database.DB('main db', db_address, cache_size = config.getint('database', 'cache_size'), pool_size = config.getint('server', 'queue.workers') + 1)
     db.open()
 
     # Create application
@@ -89,11 +72,12 @@ class Runner(object):
     app_config['title'] = config.get('web', 'title')
     app_config['label'] = config.get('web', 'label')
 
-    app_config['cache.enabled'] = bool(config.get('cache', 'enabled'))
+    # Various pieces of configuration
+    app_config['cache.enabled'] = config.getboolean('cache', 'enabled')
     for token in config.get('cache', 'dont_cache').split(','):
       app_config['cache.dont_cache.' + token.strip()] = True
 
-    app_config['hosts']   = {}
+    app_config['hosts'] = {}
     if config.has_section('hosts'):
       for option in config.options('hosts'):
         addresses = config.get('hosts', option)
@@ -105,38 +89,61 @@ class Runner(object):
         app_config['stats.' + option] = config.get('stats', option)
 
     app_config['issues'] = {
-      'token':      config.get('issues', 'token'),
-      'repository':   config.get('issues', 'repository')
+      'token': config.get('issues', 'token'),
+      'repository': config.get('issues', 'repository')
     }
 
-    app = hlib.engine.Application('settlers', root, db, app_config)
-    # app.sessions = hlib.http.session.FileStorage(config.get('session', 'storage_path'), app)
-    app.sessions = hlib.http.session.CachedMemoryStorage(config.get('session', 'storage_path'), app)
-    app.config['sessions.time']   = config.get('session', 'time')
-    app.config['sessions.cookie_name']  = config.get('session', 'cookie_name')
-
-    app.config['log.access.format'] = config.get('log', 'access_format')
-    app.channels.add('access', access)
-    app.channels.add('error', stderr, error)
-    app.channels.add('transactions', transactions)
-    app.channels.add('events', stderr, events)
-
     if config.has_section('static'):
-      app.config['static.enabled'] = True
-      app.config['static.root'] = config.get('static', 'root')
+      app_config['static.enabled'] = True
+      app_config['static.root'] = config.get('static', 'root')
 
-    if on_app_config:
-      on_app_config(app, config)
+    # Logging channels
+    app_channels = hlib.engine.AppChannels()
+
+    stdout = hlib.log.channels.stdout.Channel()
+    stderr = hlib.log.channels.stderr.Channel()
+
+    for channel_type in hlib.engine.AppChannels.CHANNEL_TYPES:
+      app_config['log.%s.enabled' % channel_type] = config.getboolean('log.%s' % channel_type, 'enabled')
+      if config.has_option('log.%s.format' % channel_type, 'format'):
+        app_config['log.%s.format' % channel_type] = config.get('log.%s' % channel_type, 'format')
+
+      channels = []
+
+      for channel_endpoint in config.get('log.%s' % channel_type, 'channels').split(','):
+        channel_endpoint = channel_endpoint.strip()
+
+        if channel_endpoint == '<default log>':
+          channels.append(hlib.log.channels.file.Channel(os.path.join(config.get('server', 'path'), 'logs', channel_type + '.log')))
+        elif channel_endpoint == '<stdout>':
+          channels.append(stdout)
+        elif channel_endpoint == '<stderr>':
+          channels.append(stderr)
+        else:
+          channels.append(hlib.log.channels.file.Channel(channel_endpoint))
+
+      app_channels.add(channel_type, *channels)
+
+    app = hlib.engine.Application('settlers', root, db, app_config, channels = app_channels, config_file = config)
+
+    # Session storage
+    if config.get('session', 'storage') == 'memory':
+      app.sessions = hlib.http.session.MemoryStorage(app)
+    elif config.get('session', 'storage') == 'cached_memory':
+      app.sessions = hlib.http.session.CachedMemoryStorage(config.get('session', 'storage_path'), app)
 
     hlib.ui.templates.Mako.Template.init_app(app)
 
+    app.config['sessions.time'] = config.getint('session', 'time')
+    app.config['sessions.cookie_name']  = config.get('session', 'cookie_name')
+
     server_config = hlib.server.Server.default_config()
     server_config['server'] = config.get('server', 'host')
-    server_config['port']   = int(config.get('server', 'port'))
+    server_config['port']   = config.getint('server', 'port')
     server_config['app']    = app
-    server_config['queue.workers'] = int(config.get('server', 'queue.workers'))
-    server_config['queue.timeout'] = int(config.get('server', 'queue.timeout'))
-    server_config['queue.size'] = int(config.get('server', 'queue.size'))
+    server_config['queue.workers'] = config.getint('server', 'queue.workers')
+    server_config['queue.timeout'] = config.getint('server', 'queue.timeout')
+    server_config['queue.size'] = config.getint('server', 'queue.size')
 
     self.engine = hlib.engine.Engine('Engine #1', [server_config])
 
