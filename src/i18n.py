@@ -77,13 +77,10 @@ class Language(hlib.database.DBObject):
     # pylint: disable-msg=W0201
     self.__dict__ = d
 
-    if False == True:
-      if d['name'] not in COVERAGE:
-        COVERAGE[d['name']] = TokenCoverage()
+    if d['name'] not in COVERAGE:
+      COVERAGE[d['name']] = TokenCoverage()
 
-      self.coverage = COVERAGE[d['name']]
-    else:
-      self.coverage = None
+    self.coverage = COVERAGE[d['name']]
 
   def __getitem__(self, name):
     if name in self.tokens:
