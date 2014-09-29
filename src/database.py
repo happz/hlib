@@ -275,8 +275,6 @@ class DB(object):
     self.db._r()
 
   def globalGC(self):
-    self.pack()
-
     self.db._a()
     self.db.pool.availableGC()
     self.db.historical_pool.availableGC()

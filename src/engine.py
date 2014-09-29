@@ -574,6 +574,14 @@ class DataBaseGCTask(hlib.scheduler.Task):
     if app.db != None and app.db.is_opened:
       app.db.globalGC()
 
+class DatabasePackTask(hlib.scheduler.Task):
+  def __init__(self):
+    super(DatabasePackTask, self).__init__('database-pack', self.database_pack, hour = range(0, 23, 12))
+
+  def database_pack(self, engine = None, app = None):
+    if app.db != None and app.db.is_opened:
+      app.db.pack()
+
 class SaveSessionsTask(hlib.scheduler.Task):
   def __init__(self):
     super(SaveSessionsTask, self).__init__('save-sessions', self.save_sessions, min = range(10, 60, 20))
