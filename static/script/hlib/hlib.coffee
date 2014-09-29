@@ -1,5 +1,5 @@
 window.hlib ?= {}
-window.hlib.ajax ?= {}
+window._ ?= window.hlib
 
 #
 # Methods
@@ -17,11 +17,23 @@ unless Array::filter
   Array::filter = (callback) ->
     element for element in this when callback(element)
 
-window.hlib.OPTS		= null
-window.hlib.MESSAGE		= null
-window.hlib.INFO		= null
-window.hlib.ERROR		= null
-window.hlib.WORKING		= null
+unless Array::last
+  Array::last = () ->
+    @[@length - 1]
+
+unless String::startsWith
+  String::startsWith = (s) ->
+    @indexOf(s) == 0
+
+unless String::trim
+  String::trim = () ->
+    @replace /^\s+|\s+$/g, ''
+
+window.hlib.OPTS    = null
+window.hlib.MESSAGE = null
+window.hlib.INFO    = null
+window.hlib.ERROR   = null
+window.hlib.WORKING = null
 
 window.hlib.log = (s) ->
   if console and console.log
@@ -29,7 +41,44 @@ window.hlib.log = (s) ->
 
 window.hlib.trace = () ->
   trace = printStackTrace()
-  window.hlib.log trace.join '\n'
+  _.log trace.join '\n'
+
+window.hlib.extend = (out) ->
+  out ?= {}
+
+  for i in [1..arguments.length]
+    if not arguments[i]
+      continue
+
+    for key in arguments[i]
+      if arguments[i].hasOwnProperty key
+        out[key] = arguments[i][key]
+
+  return out
+
+window.hlib.on = (el, eventName, handler) ->
+  if el.addEventListener
+    el.addEventListener eventName, handler
+  else
+    el.attachEvent 'on' + eventName, handler
+
+window.hlib.off = (el, eventName, handler) ->
+  if el.removeEventListener
+    el.removeEventListener eventName, handler
+  else
+    el.detachEvent('on' + eventName, handler)
+
+window.hlib.has_class = (el, cls) ->
+  if el.classList
+    el.classList.contains cls
+  else
+    new RegExp('(^| )' + cls + '( |$)', 'gi').test(el.className)
+
+window.hlib.remove_class = (el, cls) ->
+  if el.classList
+    el.classList.remove cls
+  else
+    el.className = el.className.replace(new RegExp('(^|\\b)' + cls.split(' ').join('|') + '(\\b|$)', 'gi'), ' ')
 
 window.hlib._g = (s) ->
   if s.length <= 0
@@ -56,28 +105,6 @@ window.hlib.server_offline = () ->
 window.hlib.server_online = () ->
   if Offline
     Offline.markUp()
-
-window.hlib.ajax.call = (type, url, data, callback) ->
-  xhr = new XMLHttpRequest()
-  fd = null
-
-  xhr.open type, url
-
-  if type == 'POST' and data
-    fd = new FormData()
-    fd.append(key, JSON.stringify(data[key])) for key of data
-
-  xhr.onload = () ->
-    callback JSON.parse xhr.response
-
-  if data
-    xhr.send fd
-
-window.hlib.ajax.get = (url, data, callback) ->
-  window.hlib.ajax.call 'GET', url, data, callback
-
-window.hlib.ajax.update = (url, data, callback) ->
-  window.hlib.ajax.call 'POST', url, data, callback
 
 window.hlib.disable = (fid) ->
   if not $('#' + fid).hasClass 'disabled'
