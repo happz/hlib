@@ -56,7 +56,7 @@ class Runner(object):
 
     os.execv(sys.argv[0], sys.argv[:])
 
-  def __init__(self, config_file, root, config_defaults = None, on_app_config = None):
+  def __init__(self, config_file, root, config_defaults = None):
     super(Runner, self).__init__()
 
     config = ConfigFile(default = config_defaults)
