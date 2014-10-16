@@ -143,8 +143,17 @@ class CachedMemoryStorage(MemoryStorage):
 
   def save_sessions(self):
     # pylint: disable-msg=E1101
+    sessions_dump = None
+    while not sessions_dump:
+      try:
+        sessions_dump = cPickle.dumps(self.sessions)
+      except RuntimeError, e:
+        if e.message != 'dictionary changed size during iteration':
+          raise e
+        sessions_dump = None
+
     with self.__open_session_file(mode = 'w') as f:
-      f.write(cPickle.dumps(self.sessions))
+      f.write(sessions_dump)
 
   def purge(self):
     with self.lock:
