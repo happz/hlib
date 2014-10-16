@@ -12,29 +12,46 @@ import types
 import json
 import time
 
-__all__ = [
-           'TestCase',
-           'T', 'F', 'EQ', 'NEQ', 'EQ3', 'NONE', 'ANY', 'LEQ', 'JEQ', 'IN', 'NIN', 'EX', 'R', 'SKIP', 'Z', 'PAUSE',
-          ]
+from pprint import pprint
 
-def PAUSE(sec):
+__all__ = [
+  'TestCase',
+  'T', 'F', 'EQ', 'NEQ', 'NONE', 'ANY', 'JEQ',
+  'EX', 'R', 'SKIP', 'Z', 'PAUSE', 'CLASS',
+  # Arrays
+  'EMPTY', 'NEMPTY', 'LEQ', 'IN', 'NIN',
+  # Randoms
+  'randint', 'randstr',
+  'EventPatcher', 'EventPatcherWithCounter',
+  'pprint'
+]
+
+def PAUSE(msg, sec):
+  print msg.format(delay = str(sec))
+
   time.sleep(sec)
 
-def T(a, msg = None):
-  msg = msg or ''
-  assert a == True, msg
+#
+# Basic asserts
+#
+def T(msg, *actual_values):
+  for actual_value in actual_values:
+    assert actual_value == True, msg.format(actual = str(actual_value))
 
-def F(a):
-  assert a == False
+def F(msg, *actual_values):
+  for actual_value in actual_values:
+    assert actual_value == False, msg.format(actual = str(actual_value))
 
-def EQ(a, b):
-  assert a == b
+def EQ(msg, expected, *actual_values):
+  for actual_value in actual_values:
+    assert expected == actual_value, msg.format(expected = str(expected), actual = str(actual_value))
 
-def Z(a):
-  assert a == 0
+def NEQ(msg, expected, *actual_values):
+  for actual_value in actual_values:
+    assert expected != actual_value, msg.format(expected = str(expected), actual = str(actual_value))
 
-def NEQ(a, b):
-  assert a != b
+def Z(msg, *actual_values):
+  EQ(msg, 0, *actual_values)
 
 def JEQ(a, b):
   if type(a) in types.StringTypes:
@@ -63,22 +80,24 @@ def JEQ(a, b):
   __check_dict(a, b, '')
   __check_dict(b, a, '')
 
-def EQ3(a, b, c):
-  EQ(a, b)
-  EQ(b, c)
-  EQ(c, a)
+def NONE(msg, *actual_values):
+  EQ(msg, None, *actual_values)
 
-def NONE(a):
-  EQ(a, None)
+def ANY(msg, *actual_values):
+  NEQ(msg, None, *actual_values)
 
-def ANY(a):
-  NEQ(a, None)
+# Arrays
+def LEQ(msg, seq, expected):
+  assert len(seq) == expected, msg.format(expected = str(expected), actual = str(len(seq)))
 
-def LEQ(seq, l):
-  EQ(len(seq), l)
+def EMPTY(msg, seq):
+  assert len(seq) == 0, msg.format(expected = 0, actual = len(seq))
 
-def IN(member, seq):
-  assert member in seq
+def NEMPTY(msg, seq):
+  assert len(seq) > 0, msg.format(expected = 0, actual = len(seq))
+
+def IN(msg, seq, member):
+  assert member in seq, msg.format(member = str(member), seq = str(seq))
 
 def NIN(member, seq):
   assert member not in seq
@@ -91,10 +110,26 @@ def EX(exc_cls, fn, *args, **kwargs):
   else:
     assert False
 
+def CLASS(msg, expected, *actual_values):
+  for actual_value in actual_values:
+    assert expected == actual_value.__class__, msg.format(expected = str(expected), actual = str(actual_value))
+
 from nose.tools import raises as R  # @UnusedImport
 from nose.tools import nottest as SKIP  # @UnusedImport
 
-def rand_string(length = 10):
+def randint(*limits):
+  left  = 0
+  right = 100
+
+  if len(limits) == 1:
+    right = int(limits[0])
+  elif len(limits) == 2:
+    left = int(limits[0])
+    right = int(limits[1])
+
+  return random.randint(left, right)
+
+def randstr(length = 10):
   return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(length))
 
 def cmp_json_dicts(reply, expect):
@@ -124,30 +159,63 @@ def cmp_json_dicts(reply, expect):
     print >> sys.stderr, 'JSON reply: \'%s\'' % reply
     raise e
 
-def patch_event_hooks(ename = None, callback = None):
-  def __fake_call_nop(self, event):
-    pass
+class EventPatcher(object):
+  def __init__(self, events, callback = None):
+    super(EventPatcher, self).__init__()
 
-  for event_name, hooks in hlib.events._HOOKS.items():
-    if ename != None and ename != event_name:
-      continue
+    def __fake_call_nop(event):
+      pass
 
-    for hook in hooks:
-      if callback:
-        patched_call = types.MethodType(callback, hook, hook.__class__)
-      else:
-        patched_call = types.MethodType(__fake_call_nop, hook, hook.__class__)
+    self.events = events or []
+    if type(events) in types.StringTypes:
+      self.events = [self.events]
 
-      hook.__original_call = hook.__call__
-      hook.__call__ = patched_call
+    self.callback = callback or __fake_call_nop
 
-def unpatch_event_hooks(ename = None):
-  for event_name, hooks in hlib.events._HOOKS.items():
-    if ename != None and ename != event_name:
-      continue
+  def __enter__(self):
+    import hlib.events
 
-    for hook in hooks:
-      hook.__call__ = hook.__original_call
+    for event_name, hooks in hlib.events._HOOKS.items():
+      if event_name not in self.events:
+        continue
+
+      for hook in hooks.values():
+        hook.saved_callbacks.append(hook.callback)
+        hook.callback = self.callback
+
+  def __exit__(self, *args):
+    import hlib.events
+
+    for event_name, hooks in hlib.events._HOOKS.items():
+      if event_name not in self.events:
+        continue
+
+      for hook in hooks.values():
+        hook.callback = hook.saved_callbacks.pop()
+
+    return False
+
+class EventPatcherWithCounter(EventPatcher):
+  def __init__(self, events):
+    def __event_reporter(e):
+      self.events_triggered[e.ename()][0] += 1
+
+    super(EventPatcherWithCounter, self).__init__(events.keys(), callback = __event_reporter)
+
+    self.events_triggered = {}
+
+    for event_name, expected_hits in events.items():
+      self.events_triggered[event_name] = [0, expected_hits]
+
+  def __exit__(self, *args):
+    if not super(EventPatcherWithCounter, self).__exit__(*args):
+      return False
+
+    print self.events_triggered
+    for event_name, values in self.events_triggered.items():
+      EQ(values[1], values[0], msg = 'Event %s triggered {actual} times, {expected} expected' % event_name)
+
+    return False
 
 class DatabaseCache(object):
   _dbs = {}
