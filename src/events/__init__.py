@@ -59,6 +59,10 @@ class Hook(object):
 
     self.register()
 
+    # Test framework uses this to save old callback
+    # when patching event hooks
+    self.saved_callbacks = []
+
   def register(self):
     if self.event not in _HOOKS:
       _HOOKS[self.event] = collections.OrderedDict()
